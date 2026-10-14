@@ -14,7 +14,7 @@ SCENARIOS = ("bear", "base", "bull")
 # built. Remove a name to bring it back (e.g. delete the Alaska line).
 # Names must match the workbook exactly.
 EXCLUDED_NODES: set[str] = {
-    "North Slope Processing Facilities",   # Prudhoe Bay, AK: no road link from the lower 48 without Canada
+    # "North Slope Processing Facilities",   # Prudhoe Bay, AK: no road link from the lower 48 without Canada
 }
 
 # Individual (source_name, sink_name) pairs to forbid, e.g. a lane you know is

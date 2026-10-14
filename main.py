@@ -22,6 +22,8 @@ logger = logging.getLogger("main")
 
 def apply_exclusions(nodes: list[Node]) -> list[Node]:
     """Drop nodes listed in config.EXCLUDED_NODES (error on unknown names)."""
+    if not config.EXCLUDED_NODES:
+        return nodes
     unknown = config.EXCLUDED_NODES - {n.name for n in nodes}
     if unknown:
         raise ValueError(f"EXCLUDED_NODES names not found in workbook: {sorted(unknown)}")

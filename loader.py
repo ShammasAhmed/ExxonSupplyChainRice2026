@@ -21,14 +21,14 @@ SHEET_CATEGORIES = {
 
 # Canonical model unit. The workbook also carries DST (short ton) columns, but
 # those are Excel formulas derived from the DMT columns, so DMT is read directly.
-VOLUME_UNIT = "DMT/yr"
+VOLUME_UNIT = "DST/yr"
 
 _US_ALIASES = {"US", "USA", "U.S.", "U.S.A.", "UNITED STATES", "UNITED STATES OF AMERICA"}
 
 # Header patterns, matched case-insensitively against the column headers, so
 # "Name" vs "Facility Name" or "Bear Production" vs "Bear Demand" both work.
 _COLUMN_PATTERNS = {
-    "name": r"^(facility\s+)?name$",
+    "name": r"name$",
     "city": r"^city$",
     "state": r"^state$",
     "country": r"^country$",
