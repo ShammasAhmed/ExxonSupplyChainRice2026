@@ -15,7 +15,7 @@ from loader import load_nodes
 from model import solve_scenario
 from node import Node
 from routing import get_drive_times
-from visualize1 import plot_nodes
+from visualize import plot_nodes
 
 logger = logging.getLogger("main")
 

@@ -27,6 +27,7 @@ def plot_nodes(
     *,
     show_names: bool = False,
     show_intermediate: bool = False,
+    flows: dict[tuple[str, str], float] | None = None,
     title: str | None = None,
     save_path: str | Path | None = None,
     show: bool = False,
@@ -39,6 +40,9 @@ def plot_nodes(
     save_path: ".html" -> interactive page (no extra install);
                ".png" / ".pdf" / ".svg" -> static image (needs kaleido).
     show:      open the interactive map in your browser.
+    flows:     optional {(source_name, sink_name): volume}. Each is drawn as a
+               straight line (not the road geometry) with a small volume label
+               at its midpoint.
     """
     nodes = list(nodes)
     categories = [NodeCategory.SOURCE, NodeCategory.SINK]
@@ -46,6 +50,22 @@ def plot_nodes(
         categories.append(NodeCategory.INTERMEDIATE)
 
     fig = go.Figure()
+    if flows:
+        by_name = {n.name: n for n in nodes}
+        mid_lon, mid_lat, mid_txt = [], [], []
+        for (src, snk), vol in flows.items():
+            a, b = by_name[src], by_name[snk]
+            fig.add_trace(go.Scattergeo(
+                lon=[a.lon, b.lon], lat=[a.lat, b.lat], mode="lines",
+                line=dict(width=1.5, color="rgba(80,80,80,0.55)"),
+                hoverinfo="skip", showlegend=False))
+            mid_lon.append((a.lon + b.lon) / 2)
+            mid_lat.append((a.lat + b.lat) / 2)
+            mid_txt.append(f"{vol:,.0f}")
+        fig.add_trace(go.Scattergeo(
+            lon=mid_lon, lat=mid_lat, mode="text", text=mid_txt,
+            textfont=dict(size=8, color="#333333"), name="Flow (DMT/yr)",
+            hoverinfo="skip", showlegend=False))
     for cat in categories:
         group = [n for n in nodes if n.category is cat]
         if not group:
@@ -67,7 +87,7 @@ def plot_nodes(
         ))
 
     fig.update_geos(
-        scope="usa",                  # albers usa: lower 48 + Alaska/Hawaii insets
+        scope="north america",                  # albers usa: lower 48 + Alaska/Hawaii insets
         showsubunits=True,            # state borders
         subunitcolor="#9a9a9a",
         showland=True,
@@ -96,8 +116,10 @@ def plot_nodes(
         fig.show()
     return fig
 
-from loader import load_nodes
-nodes = load_nodes("network.xlsx")
-plot_nodes(nodes, save_path="network_map.png")   # static image
-plot_nodes(nodes, save_path="network_map.html")  # interactive page
-plot_nodes(nodes, show=True)                            
+if __name__ == "__main__":
+    from loader import load_nodes
+
+    nodes = load_nodes("network.xlsx")
+    plot_nodes(nodes, save_path="network_map.png")   # static image
+    plot_nodes(nodes, save_path="network_map.html")  # interactive page
+    plot_nodes(nodes, show=True)
