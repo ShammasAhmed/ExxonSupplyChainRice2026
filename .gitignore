@@ -2,3 +2,8 @@
 __pycache__/
 *.pyc
 gurobi.log
+
+# Generated model outputs
+output/
+network_map.html
+network_map.png
