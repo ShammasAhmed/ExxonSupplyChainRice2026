@@ -1,4 +1,5 @@
-"""Load network nodes from the network workbook (Sources / Sinks sheets)."""
+"""Load network nodes from the network workbook (Sources / Sinks sheets) and
+per-site transport modes from the Modes table."""
 
 from __future__ import annotations
 
@@ -8,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from node import Node, NodeCategory
+from node import Mode, Node, NodeCategory, SiteMode
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,54 @@ def load_nodes(path: str | Path) -> list[Node]:
     if dupes:
         raise ValueError(f"Duplicate node names across sheets: {dupes}")
     return nodes
+
+
+def load_site_modes(path: str | Path) -> list[SiteMode]:
+    """Read the Modes table: a .csv file, or the "Modes" sheet of a workbook.
+
+    Columns: site, mode, status (existing/candidate), build_cost_usd_per_yr,
+    capacity_dst_per_yr, min_demand_share, notes. Blank optional cells mean
+    0 build cost, no capacity cap, and no forced share.
+    """
+    path = Path(path)
+    df = (pd.read_csv(path) if path.suffix.lower() == ".csv"
+          else pd.read_excel(path, sheet_name="Modes"))
+    df = df.dropna(how="all")
+    df.columns = [str(c).strip().lower() for c in df.columns]
+
+    rows: list[SiteMode] = []
+    for idx, row in df.iterrows():
+        where = f"{path.name} row {idx + 2}"
+        site = str(row["site"]).strip()
+        status = str(row["status"]).strip().lower()
+        if status not in ("existing", "candidate"):
+            raise ValueError(f"{where} ({site!r}): status must be existing/candidate, got {status!r}.")
+        try:
+            mode = Mode(str(row["mode"]).strip().lower())
+        except ValueError as exc:
+            raise ValueError(f"{where} ({site!r}): unknown mode {row['mode']!r}; "
+                             f"expected one of {[m.value for m in Mode]}.") from exc
+        build_cost = _opt_float(row.get("build_cost_usd_per_yr"), 0.0)
+        if status == "candidate" and build_cost <= 0:
+            logger.warning("%s (%r, %s): candidate has no build cost, so building it is free.",
+                           where, site, mode.value)
+        share = _opt_float(row.get("min_demand_share"), 0.0)
+        if not 0.0 <= share <= 1.0:
+            raise ValueError(f"{where} ({site!r}): min_demand_share {share} not in [0, 1].")
+        rows.append(SiteMode(
+            site=site, mode=mode, existing=status == "existing", build_cost=build_cost,
+            capacity=_opt_float(row.get("capacity_dst_per_yr"), None), min_demand_share=share,
+        ))
+
+    keys = [(r.site, r.mode) for r in rows]
+    dupes = sorted({k for k in keys if keys.count(k) > 1})
+    if dupes:
+        raise ValueError(f"{path.name}: duplicate (site, mode) rows: {dupes}")
+    return rows
+
+
+def _opt_float(value, default):
+    return default if value is None or pd.isna(value) or str(value).strip() == "" else float(value)
 
 
 def _parse_sheet(df: pd.DataFrame, sheet_name: str, category: NodeCategory) -> list[Node]:

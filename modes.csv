@@ -1,0 +1,32 @@
+site,mode,status,build_cost_usd_per_yr,capacity_dst_per_yr,min_demand_share,notes
+Olin Chlor Alkali Freeport Complex,rail,existing,,,,Ships to GCGV by railcar
+Westlake Chemical Lake Charles Complex,truck,existing,,,,Ships to Beaumont by truck
+Olin Plaquemine Plant,barge,existing,,,,Ships to Baton Rouge by barge (sponsor lists supplier as WLK)
+Olin Plaquemine Plant,truck,existing,,,,Ships to Baton Rouge by truck
+Covestro Baytown Industrial Complex,barge,existing,,,,Ships to Baytown and Beaumont by barge
+Covestro Baytown Industrial Complex,truck,existing,,,,Ships to Baytown by truck
+Covestro Baytown Industrial Complex,rail,existing,,,,Ships to Beaumont by railcar
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",truck,existing,,,,Ships to Joliet by truck (sponsor lists supplier as WLK)
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",barge,existing,,,,INFERRED: terminal is resupplied from Plaquemine/Baytown; confirm mode with EM
+Brenntag Edmonton,truck,existing,,,,Ships to Strathcona by truck
+Quadra Toronto,truck,existing,,,,Ships to Nanticoke by truck
+Brenntag Toronto,truck,existing,,,,Ships to Sarnia by truck
+Quadra Edmonton,truck,existing,,,,Ships to Cold Lake by truck
+Univar Edmonton,truck,existing,,,,Ships to Kearl by truck
+Joliet Refinery,truck,existing,,,,
+Joliet Refinery,rail,candidate,300000,,,Sponsor alternate mode. PLACEHOLDER build cost (~$3M spur + unloading annualized)
+Joliet Refinery,barge,candidate,1000000,,,Sponsor alternate mode. PLACEHOLDER build cost (~$10M dock annualized)
+Baton Rouge Complex,barge,existing,,,,
+Baton Rouge Complex,truck,existing,,,0.0309,1416 of 45856 DST: tanks in that section of the plant are only reachable by truck
+Baytown Complex,barge,existing,,,,
+Baytown Complex,truck,existing,,,,
+Beaumont Complex,truck,existing,,,,
+Beaumont Complex,barge,existing,,,,
+Beaumont Complex,rail,existing,,,0.2061,7125 of 34565 DST: moving off rail (to barge) requires piping to the synthetics plant
+Gulf Coast Growth Ventures (GCGV),rail,existing,,,,
+Strathcona Refinery,truck,existing,,,,
+Nanticoke Refinery,truck,existing,,,,
+Sarnia Refinery,truck,existing,,,,
+Sarnia Refinery,rail,candidate,300000,,,Sponsor alternate mode; 2028 expansion to 20k+ DMT. PLACEHOLDER build cost
+Cold Lake,truck,existing,,,,
+Kearl,truck,existing,,,,

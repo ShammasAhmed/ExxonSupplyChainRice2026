@@ -1,32 +1,41 @@
-"""Driving-time estimates between nodes.
+"""Mode-dependent lane distance and freight cost between two sites.
 
-`get_drive_times` returns {(source_name, sink_name): seconds or None}. None means
-no route exists for that pair, and the model skips the edge.
+`lane_cost(a, b, mode)` returns $/ton for the line haul, or None when the
+mode does not offer that lane (e.g. pipeline beyond its max length). Loading
+and unloading are charged separately on the network's transfer arcs.
 
-Times are approximations: great-circle distance x 1.3 detour factor at an
-average 55 mph. To use a real routing API later, replace `get_drive_times`
-(keep the same return shape) and nothing else needs to change.
+Distances are approximations: great-circle distance x a per-mode circuity
+factor (config.MODE_PARAMS). To use real routed mileage later (e.g. a road
+routing API, or rail/waterway networks), replace `lane_miles` and keep its
+signature; nothing else needs to change.
 """
 
 from __future__ import annotations
 
 import math
 
-from node import Node
+import config
+from node import Mode, Node
 
-DETOUR_FACTOR = 1.3     # road distance / straight-line distance
-AVG_SPEED_MPH = 55.0
 EARTH_RADIUS_MILES = 3958.8
 
 
-def get_drive_times(sources: list[Node], sinks: list[Node]) -> dict[tuple[str, str], float | None]:
-    """Estimated drive time in seconds for every (source, sink) pair."""
-    return {(s.name, t.name): _estimate_seconds(s, t) for s in sources for t in sinks}
-
-
-def _estimate_seconds(a: Node, b: Node) -> float:
+def great_circle_miles(a: Node, b: Node) -> float:
     p1, p2 = math.radians(a.lat), math.radians(b.lat)
     dphi, dl = p2 - p1, math.radians(b.lon - a.lon)
     h = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    miles = 2 * EARTH_RADIUS_MILES * math.asin(math.sqrt(h)) * DETOUR_FACTOR
-    return miles / AVG_SPEED_MPH * 3600
+    return 2 * EARTH_RADIUS_MILES * math.asin(math.sqrt(h))
+
+
+def lane_miles(a: Node, b: Node, mode: Mode) -> float:
+    """Estimated route miles from a to b by this mode."""
+    return great_circle_miles(a, b) * config.MODE_PARAMS[Mode(mode).value]["circuity"]
+
+
+def lane_cost(a: Node, b: Node, mode: Mode) -> float | None:
+    """Line-haul $/ton from a to b by this mode, or None if the lane is not offered."""
+    p = config.MODE_PARAMS[Mode(mode).value]
+    miles = lane_miles(a, b, mode)
+    if p["max_miles"] is not None and miles > p["max_miles"]:
+        return None
+    return max(miles, p["min_miles"]) * p["usd_per_ton_mile"]
