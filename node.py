@@ -17,6 +17,31 @@ class Scenario(str, Enum):
     BULL = "bull"
 
 
+class Mode(str, Enum):
+    TRUCK = "truck"
+    RAIL = "rail"
+    BARGE = "barge"
+    PIPELINE = "pipeline"
+
+
+@dataclass(frozen=True, slots=True)
+class SiteMode:
+    """One transport mode at one site (a row of the Modes table).
+
+    existing=False marks a candidate the model may choose to build, paying
+    build_cost ($/yr, annualized). capacity caps throughput (None = no cap).
+    min_demand_share forces that fraction of the site's demand to arrive by
+    this mode (e.g. tanks only reachable by truck).
+    """
+
+    site: str
+    mode: Mode
+    existing: bool
+    build_cost: float = 0.0
+    capacity: float | None = None
+    min_demand_share: float = 0.0
+
+
 @dataclass(frozen=True, slots=True)
 class Node:
     """A location in the supply chain network.

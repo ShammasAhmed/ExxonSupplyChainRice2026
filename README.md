@@ -1,4 +1,6 @@
+
 # Exxon Supply Chain Rice 2026
+
 Rice University CMOR 492 Senior Design Project with ExxonMobil
 
 ## Project Plan
@@ -50,12 +52,20 @@ problem) model, solved with Gurobi:
 
 - `network.xlsx` - source/sink workbook with `Sources` and `Sinks` sheets
   (name, city, state, country, lat/lon, bear/base/bull volumes in DMT/yr).
-- `loader.py` - reads the workbook into `Node` objects.
-- `node.py` - the `Node` dataclass (location, category, scenario volumes).
-- `routing.py` - estimates drive time per source-sink pair from great-circle
-  distance x 1.3 at 55 mph (no live routing API yet).
-- `model.py` - solves the transportation problem per scenario: minimize total
-  drive-time subject to supply capacity and demand satisfaction.
+- `modes.csv` - which transport modes (truck/rail/barge/pipeline) each site
+  has, `existing` or `candidate` to build (annualized build cost), plus
+  optional throughput caps and forced mode shares. Built from EM's
+  `Rice caustic model data` sheet.
+- `loader.py` - reads the workbook into `Node` objects and `modes.csv` into
+  `SiteMode` rows.
+- `node.py` - the `Node` dataclass (location, category, scenario volumes),
+  the `Mode` enum, and `SiteMode`.
+- `network.py` - expands each site into a hub node plus one node per mode,
+  joined by load/unload (handling cost) and transport (line-haul) arcs.
+- `routing.py` - line-haul $/ton per mode from great-circle distance x a
+  per-mode circuity factor. Rates in `config.py` are placeholders.
+- `model.py` - multimodal min-cost flow MILP per scenario: minimize freight +
+  handling + build cost, choosing which candidate modes to build.
 - `main.py` - CLI entry point; runs all three scenarios and writes network
   maps to `output/`.
 - `visualize.py` / `visualize1.py` - Plotly map rendering (HTML + PNG).

@@ -13,7 +13,14 @@ from typing import Iterable
 
 import plotly.graph_objects as go
 
-from node import Node, NodeCategory
+from node import Mode, Node, NodeCategory
+
+_MODE_COLORS = {
+    Mode.TRUCK: "rgba(214,96,77,0.75)",
+    Mode.RAIL: "rgba(90,90,90,0.8)",
+    Mode.BARGE: "rgba(33,102,172,0.75)",
+    Mode.PIPELINE: "rgba(118,42,131,0.75)",
+}
 
 _STYLE = {
     NodeCategory.SOURCE: dict(color="#1a9641", symbol="triangle-up", label="Source"),
@@ -27,7 +34,7 @@ def plot_nodes(
     *,
     show_names: bool = False,
     show_intermediate: bool = False,
-    flows: dict[tuple[str, str], float] | None = None,
+    flows: dict[tuple[str, str, Mode], float] | None = None,
     title: str | None = None,
     save_path: str | Path | None = None,
     show: bool = False,
@@ -40,9 +47,9 @@ def plot_nodes(
     save_path: ".html" -> interactive page (no extra install);
                ".png" / ".pdf" / ".svg" -> static image (needs kaleido).
     show:      open the interactive map in your browser.
-    flows:     optional {(source_name, sink_name): volume}. Each is drawn as a
-               straight line (not the road geometry) with a small volume label
-               at its midpoint.
+    flows:     optional {(source_name, sink_name, mode): volume}. Each is drawn
+               as a straight line (not the route geometry) colored by mode,
+               with a small volume label at its midpoint.
     """
     nodes = list(nodes)
     categories = [NodeCategory.SOURCE, NodeCategory.SINK]
@@ -53,15 +60,20 @@ def plot_nodes(
     if flows:
         by_name = {n.name: n for n in nodes}
         mid_lon, mid_lat, mid_txt = [], [], []
-        for (src, snk), vol in flows.items():
+        seen_modes, per_pair = set(), {}
+        for (src, snk, mode), vol in flows.items():
             a, b = by_name[src], by_name[snk]
             fig.add_trace(go.Scattergeo(
                 lon=[a.lon, b.lon], lat=[a.lat, b.lat], mode="lines",
-                line=dict(width=1.5, color="rgba(80,80,80,0.55)"),
-                hoverinfo="skip", showlegend=False))
+                line=dict(width=1.5, color=_MODE_COLORS[mode]),
+                name=mode.value.capitalize(), legendgroup=mode.value,
+                showlegend=mode not in seen_modes, hoverinfo="skip"))
+            seen_modes.add(mode)
+            # Stagger labels when one pair is served by several modes.
+            k = per_pair[(src, snk)] = per_pair.get((src, snk), -1) + 1
             mid_lon.append((a.lon + b.lon) / 2)
-            mid_lat.append((a.lat + b.lat) / 2)
-            mid_txt.append(f"{vol:,.0f}")
+            mid_lat.append((a.lat + b.lat) / 2 + 0.4 * k)
+            mid_txt.append(f"{vol:,.0f} ({mode.value})")
         fig.add_trace(go.Scattergeo(
             lon=mid_lon, lat=mid_lat, mode="text", text=mid_txt,
             textfont=dict(size=8, color="#333333"), name="Flow (DMT/yr)",
