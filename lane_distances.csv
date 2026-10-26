@@ -1,0 +1,102 @@
+origin,destination,mode,miles,upstream_miles,off_network_miles,great_circle_miles,source
+Covestro Baytown Industrial Complex,Baton Rouge Complex,barge,367.6,8.7,8.5,227.7,usace_nwn
+Covestro Baytown Industrial Complex,Baytown Complex,barge,16.4,0.0,6.0,6.5,usace_nwn
+Covestro Baytown Industrial Complex,Beaumont Complex,barge,128.5,0.0,5.8,53.5,usace_nwn
+Covestro Baytown Industrial Complex,Joliet Refinery,barge,1555.4,1089.9,5.6,888.9,usace_nwn
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Baton Rouge Complex,barge,1236.1,0.0,5.7,793.7,usace_nwn
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Baytown Complex,barge,1575.9,0.0,3.1,913.4,usace_nwn
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Beaumont Complex,barge,1490.4,0.0,3.0,871.3,usace_nwn
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Joliet Refinery,barge,26.7,0.0,2.7,20.0,usace_nwn
+Olin Plaquemine Plant,Baton Rouge Complex,barge,33.4,28.2,5.2,15.1,usace_nwn
+Olin Plaquemine Plant,Baytown Complex,barge,371.4,19.5,2.6,229.6,usace_nwn
+Olin Plaquemine Plant,Beaumont Complex,barge,285.9,19.5,2.5,171.5,usace_nwn
+Olin Plaquemine Plant,Joliet Refinery,barge,1236.8,1184.5,2.3,789.6,usace_nwn
+Covestro Baytown Industrial Complex,Beaumont Complex,rail,70.0,0.0,3.2,53.5,scgraph:north_america_rail
+Covestro Baytown Industrial Complex,Gulf Coast Growth Ventures (GCGV),rail,274.9,0.0,13.5,192.9,scgraph:north_america_rail
+Covestro Baytown Industrial Complex,Joliet Refinery,rail,1059.6,0.0,3.3,888.9,scgraph:north_america_rail
+Covestro Baytown Industrial Complex,Sarnia Refinery,rail,1347.7,0.0,2.9,1142.8,scgraph:north_america_rail
+Olin Chlor Alkali Freeport Complex,Beaumont Complex,rail,150.5,0.0,1.6,108.6,scgraph:north_america_rail
+Olin Chlor Alkali Freeport Complex,Gulf Coast Growth Ventures (GCGV),rail,214.8,0.0,12.0,137.4,scgraph:north_america_rail
+Olin Chlor Alkali Freeport Complex,Joliet Refinery,rail,1091.2,0.0,1.7,951.6,scgraph:north_america_rail
+Olin Chlor Alkali Freeport Complex,Sarnia Refinery,rail,1379.3,0.0,1.4,1205.0,scgraph:north_america_rail
+Brenntag Edmonton,Baton Rouge Complex,truck,2232.7,0.0,3.1,1939.6,scgraph:world_highways
+Brenntag Edmonton,Baytown Complex,truck,2194.6,0.0,3.2,1884.2,scgraph:world_highways
+Brenntag Edmonton,Beaumont Complex,truck,2204.3,0.0,2.5,1886.8,scgraph:world_highways
+Brenntag Edmonton,Cold Lake,truck,188.2,0.0,17.0,141.1,scgraph:world_highways
+Brenntag Edmonton,Joliet Refinery,truck,1604.0,0.0,2.6,1430.9,scgraph:world_highways
+Brenntag Edmonton,Kearl,truck,317.4,0.0,17.6,275.2,scgraph:world_highways
+Brenntag Edmonton,Nanticoke Refinery,truck,1986.5,0.0,6.3,1683.5,scgraph:world_highways
+Brenntag Edmonton,Sarnia Refinery,truck,1834.0,0.0,2.5,1584.2,scgraph:world_highways
+Brenntag Edmonton,Strathcona Refinery,truck,7.0,0.0,3.9,2.9,scgraph:world_highways
+Brenntag Toronto,Baton Rouge Complex,truck,1238.5,0.0,1.4,1109.9,scgraph:world_highways
+Brenntag Toronto,Baytown Complex,truck,1446.2,0.0,1.5,1282.2,scgraph:world_highways
+Brenntag Toronto,Beaumont Complex,truck,1396.6,0.0,0.8,1230.8,scgraph:world_highways
+Brenntag Toronto,Cold Lake,truck,1893.2,0.0,15.3,1571.8,scgraph:world_highways
+Brenntag Toronto,Joliet Refinery,truck,503.9,0.0,0.9,464.4,scgraph:world_highways
+Brenntag Toronto,Kearl,truck,2194.8,0.0,15.9,1659.0,scgraph:world_highways
+Brenntag Toronto,Nanticoke Refinery,truck,68.6,0.0,4.6,60.8,scgraph:world_highways
+Brenntag Toronto,Sarnia Refinery,truck,172.6,0.0,0.8,151.2,scgraph:world_highways
+Brenntag Toronto,Strathcona Refinery,truck,1950.2,0.0,2.2,1670.3,scgraph:world_highways
+Covestro Baytown Industrial Complex,Baton Rouge Complex,truck,249.8,0.0,3.3,227.7,scgraph:world_highways
+Covestro Baytown Industrial Complex,Baytown Complex,truck,7.4,0.0,3.5,6.5,scgraph:world_highways
+Covestro Baytown Industrial Complex,Beaumont Complex,truck,64.0,0.0,2.8,53.5,scgraph:world_highways
+Covestro Baytown Industrial Complex,Cold Lake,truck,2140.7,0.0,17.2,1882.4,scgraph:world_highways
+Covestro Baytown Industrial Complex,Joliet Refinery,truck,995.8,0.0,2.9,888.9,scgraph:world_highways
+Covestro Baytown Industrial Complex,Kearl,truck,2442.3,0.0,17.9,2057.9,scgraph:world_highways
+Covestro Baytown Industrial Complex,Nanticoke Refinery,truck,1428.1,0.0,6.6,1220.7,scgraph:world_highways
+Covestro Baytown Industrial Complex,Sarnia Refinery,truck,1282.0,0.0,2.8,1142.8,scgraph:world_highways
+Covestro Baytown Industrial Complex,Strathcona Refinery,truck,2197.6,0.0,4.2,1886.8,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Baton Rouge Complex,truck,871.3,0.0,2.1,793.7,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Baytown Complex,truck,1021.2,0.0,2.2,913.4,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Beaumont Complex,truck,986.4,0.0,1.5,871.3,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Cold Lake,truck,1537.9,0.0,16.0,1357.7,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Joliet Refinery,truck,23.7,0.0,1.6,20.0,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Kearl,truck,1839.5,0.0,16.6,1486.7,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Nanticoke Refinery,truck,478.6,0.0,5.3,413.6,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Sarnia Refinery,truck,329.8,0.0,1.5,297.9,scgraph:world_highways
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",Strathcona Refinery,truck,1594.9,0.0,2.9,1427.0,scgraph:world_highways
+Olin Plaquemine Plant,Baton Rouge Complex,truck,20.4,0.0,5.5,15.1,scgraph:world_highways
+Olin Plaquemine Plant,Baytown Complex,truck,259.0,0.0,5.6,229.6,scgraph:world_highways
+Olin Plaquemine Plant,Beaumont Complex,truck,194.1,0.0,4.9,171.5,scgraph:world_highways
+Olin Plaquemine Plant,Cold Lake,truck,2185.3,0.0,19.4,1933.1,scgraph:world_highways
+Olin Plaquemine Plant,Joliet Refinery,truck,870.1,0.0,5.0,789.6,scgraph:world_highways
+Olin Plaquemine Plant,Kearl,truck,2486.9,0.0,20.0,2099.9,scgraph:world_highways
+Olin Plaquemine Plant,Nanticoke Refinery,truck,1240.9,0.0,8.7,1065.0,scgraph:world_highways
+Olin Plaquemine Plant,Sarnia Refinery,truck,1094.7,0.0,4.9,1001.9,scgraph:world_highways
+Olin Plaquemine Plant,Strathcona Refinery,truck,2242.2,0.0,6.3,1953.8,scgraph:world_highways
+Quadra Edmonton,Baton Rouge Complex,truck,2231.4,0.0,2.0,1948.7,scgraph:world_highways
+Quadra Edmonton,Baytown Complex,truck,2193.4,0.0,2.2,1893.1,scgraph:world_highways
+Quadra Edmonton,Beaumont Complex,truck,2203.1,0.0,1.5,1895.9,scgraph:world_highways
+Quadra Edmonton,Cold Lake,truck,185.7,0.0,15.9,144.1,scgraph:world_highways
+Quadra Edmonton,Joliet Refinery,truck,1602.7,0.0,1.6,1440.0,scgraph:world_highways
+Quadra Edmonton,Kearl,truck,314.9,0.0,16.6,271.8,scgraph:world_highways
+Quadra Edmonton,Nanticoke Refinery,truck,1985.2,0.0,5.2,1691.8,scgraph:world_highways
+Quadra Edmonton,Sarnia Refinery,truck,1832.7,0.0,1.5,1592.7,scgraph:world_highways
+Quadra Edmonton,Strathcona Refinery,truck,9.9,0.0,2.9,7.9,scgraph:world_highways
+Quadra Toronto,Baton Rouge Complex,truck,1223.5,0.0,2.9,1090.5,scgraph:world_highways
+Quadra Toronto,Baytown Complex,truck,1431.3,0.0,3.1,1263.2,scgraph:world_highways
+Quadra Toronto,Beaumont Complex,truck,1381.6,0.0,2.3,1211.7,scgraph:world_highways
+Quadra Toronto,Cold Lake,truck,1914.6,0.0,16.8,1573.9,scgraph:world_highways
+Quadra Toronto,Joliet Refinery,truck,488.9,0.0,2.4,449.6,scgraph:world_highways
+Quadra Toronto,Kearl,truck,2216.3,0.0,17.4,1663.1,scgraph:world_highways
+Quadra Toronto,Nanticoke Refinery,truck,51.4,0.0,6.1,41.7,scgraph:world_highways
+Quadra Toronto,Sarnia Refinery,truck,157.6,0.0,2.4,136.5,scgraph:world_highways
+Quadra Toronto,Strathcona Refinery,truck,1971.6,0.0,3.7,1671.2,scgraph:world_highways
+Univar Edmonton,Baton Rouge Complex,truck,2217.0,0.0,3.5,1944.6,scgraph:world_highways
+Univar Edmonton,Baytown Complex,truck,2179.0,0.0,3.7,1891.6,scgraph:world_highways
+Univar Edmonton,Beaumont Complex,truck,2188.7,0.0,3.0,1893.6,scgraph:world_highways
+Univar Edmonton,Cold Lake,truck,165.2,0.0,17.4,122.5,scgraph:world_highways
+Univar Edmonton,Joliet Refinery,truck,1588.3,0.0,3.1,1428.6,scgraph:world_highways
+Univar Edmonton,Kearl,truck,307.9,0.0,18.1,255.4,scgraph:world_highways
+Univar Edmonton,Nanticoke Refinery,truck,1970.8,0.0,6.7,1676.6,scgraph:world_highways
+Univar Edmonton,Sarnia Refinery,truck,1818.3,0.0,3.0,1578.1,scgraph:world_highways
+Univar Edmonton,Strathcona Refinery,truck,30.3,0.0,4.3,18.1,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Baton Rouge Complex,truck,137.1,0.0,1.6,126.3,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Baytown Complex,truck,135.3,0.0,1.8,108.4,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Beaumont Complex,truck,70.5,0.0,1.1,48.9,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Cold Lake,truck,2161.7,0.0,15.5,1888.6,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Joliet Refinery,truck,925.9,0.0,1.2,825.6,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Kearl,truck,2463.3,0.0,16.2,2060.3,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Nanticoke Refinery,truck,1330.8,0.0,4.8,1137.5,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Sarnia Refinery,truck,1184.6,0.0,1.1,1064.9,scgraph:world_highways
+Westlake Chemical Lake Charles Complex,Strathcona Refinery,truck,2218.7,0.0,2.5,1900.8,scgraph:world_highways

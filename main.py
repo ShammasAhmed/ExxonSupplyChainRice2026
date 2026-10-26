@@ -2,8 +2,9 @@
 
     python main.py
 
-Freight rates and distances are placeholder estimates (see config.MODE_PARAMS
-and routing.py).
+Line-haul costs use quoted rates (lane_rates.csv) where available, else the
+placeholder rate formula in config.MODE_PARAMS on routed miles
+(lane_distances.csv, from build_distances.py) or great-circle estimates.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from loader import VOLUME_UNIT, load_nodes, load_site_modes
 from model import solve_scenario
 from network import build_network
 from node import Node, SiteMode
-from routing import lane_cost, lane_miles
+from routing import CostBasis
 from visualize import plot_nodes
 
 logger = logging.getLogger("main")
@@ -47,7 +48,10 @@ def main() -> None:
     net = build_network(nodes, site_modes)
     print(f"{len(net.sites)} sites, {len(net.modes)} site-modes "
           f"({len(net.candidates)} candidates to build), {len(net.arcs)} arcs")
-    print("Using PLACEHOLDER freight rates and estimated distances (see config.py, routing.py).")
+    bases = [a.basis for a in net.lanes.values()]
+    print("Line-haul basis: " + ", ".join(f"{bases.count(b)} {b.value}" for b in CostBasis) + " lanes")
+    if bases.count(CostBasis.QUOTE) < len(bases):
+        print("Unquoted lanes use PLACEHOLDER rates (config.MODE_PARAMS).")
 
     out = config.OUTPUT_DIR.__class__(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -63,10 +67,11 @@ def main() -> None:
         print("   " + "  ".join(f"{k}=${v:,.0f}" for k, v in sol.cost_breakdown.items()))
         for site, mode in sol.built:
             print(f"   BUILD {mode.value} at {site} (${net.modes[(site, mode.value)].build_cost:,.0f}/yr)")
+        lanes = net.lanes
         for (s, t, mode), v in sorted(sol.flows.items(), key=lambda kv: -kv[1]):
-            a, b = net.sites[s], net.sites[t]
+            arc = lanes[(s, t, mode)]
             print(f"   {v:>10,.0f}  {s}  ->  {t}  [{mode.value}]   "
-                  f"(${lane_cost(a, b, mode):.2f}/ton, {lane_miles(a, b, mode):,.0f} mi)")
+                  f"(${arc.cost:.2f}/ton, {arc.miles:,.0f} mi, {arc.basis.value})")
 
         title = f"Caustic soda flows: {scenario.capitalize()} scenario ({VOLUME_UNIT})"
         title += " - placeholder freight rates"

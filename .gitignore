@@ -7,3 +7,4 @@ gurobi.log
 output/
 network_map.html
 network_map.png
+.cache/

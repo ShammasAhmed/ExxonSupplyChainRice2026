@@ -17,11 +17,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable
+from typing import Callable, Iterable, Iterator
 
 import config
-from node import Mode, Node, SiteMode
-from routing import lane_cost, lane_miles
+from node import LaneKey, Mode, Node, SiteMode
+from routing import CostBasis, lane_cost, lane_rates
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +41,9 @@ class Arc:
     head: NodeKey
     kind: ArcKind
     mode: Mode
-    cost: float          # $/ton
-    miles: float = 0.0   # transport arcs only
+    cost: float                     # $/ton
+    miles: float = 0.0              # transport arcs only
+    basis: CostBasis | None = None  # transport arcs only: quote / routed / estimated
 
     @property
     def label(self) -> str:
@@ -72,6 +73,11 @@ class Network:
     def candidates(self) -> list[SiteMode]:
         return [sm for sm in self.modes.values() if not sm.existing]
 
+    @property
+    def lanes(self) -> dict[LaneKey, Arc]:
+        """Transport arcs by (origin site, destination site, mode)."""
+        return {(a.tail[0], a.head[0], a.mode): a for a in self.arcs if a.kind is ArcKind.TRANSPORT}
+
     def arcs_into(self, key: NodeKey) -> list[int]:
         return self._in[key]
 
@@ -79,8 +85,28 @@ class Network:
         return self._out[key]
 
 
-def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode]) -> Network:
+def transport_lanes(sites: dict[str, Node], modes: Iterable[NodeKey]) -> Iterator[LaneKey]:
+    """Every directed line haul the network can offer, as (origin, destination, mode).
+
+    A lane needs the mode at both sites, an origin that is not a sink, and a
+    destination that is not a source. config.EXCLUDED_EDGES are skipped.
+    """
+    modes = list(modes)
+    for a, mode in modes:
+        if sites[a].is_sink:
+            continue
+        for b, mode_b in modes:
+            if mode_b != mode or a == b or sites[b].is_source or (a, b) in config.EXCLUDED_EDGES:
+                continue
+            yield a, b, Mode(mode)
+
+
+def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode], *,
+                  rate_multiplier: Callable[[Node, Node, Mode], float] | None = None) -> Network:
     """Expand sites into hub + mode nodes and connect them.
+
+    `rate_multiplier(origin, destination, mode)` scales each lane's line-haul
+    rate, for sensitivity runs (default 1 everywhere).
 
     Raises ValueError if a Modes row names a site that is not in `nodes`.
     """
@@ -107,15 +133,16 @@ def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode]) -> Netw
         if n.is_sink or n.is_intermediate:
             arcs.append(Arc((site, mode), (site, HUB), ArcKind.UNLOAD, sm.mode, handling))
 
-    for (a, mode), sm in modes.items():
-        if sites[a].is_sink:
-            continue
-        for (b, mode_b) in modes:
-            if mode_b != mode or a == b or sites[b].is_source or (a, b) in config.EXCLUDED_EDGES:
-                continue
-            cost = lane_cost(sites[a], sites[b], sm.mode)
-            if cost is not None:
-                arcs.append(Arc((a, mode), (b, mode), ArcKind.TRANSPORT, sm.mode, cost,
-                                lane_miles(sites[a], sites[b], sm.mode)))
+    for a, b, mode in transport_lanes(sites, modes):
+        multiplier = rate_multiplier(sites[a], sites[b], mode) if rate_multiplier else 1.0
+        lane = lane_cost(sites[a], sites[b], mode, multiplier)
+        if lane is not None:
+            arcs.append(Arc((a, mode.value), (b, mode.value), ArcKind.TRANSPORT, mode,
+                            lane.usd_per_ton, lane.miles, lane.basis))
+
+    offered = {(a.tail[0], a.head[0], a.mode) for a in arcs if a.kind is ArcKind.TRANSPORT}
+    for a, b, mode in sorted(set(lane_rates()) - offered):
+        logger.warning("Quoted rate %r -> %r [%s] matches no lane in the network (check names "
+                       "and that both sites have the mode in the Modes table).", a, b, mode.value)
 
     return Network(sites, modes, arcs)

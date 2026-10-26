@@ -43,6 +43,36 @@ class SiteMode:
 
 
 @dataclass(frozen=True, slots=True)
+class LaneDistance:
+    """Routed miles for one directed lane (a row of the lane distances table).
+
+    upstream_miles is the part of a barge route against the river current.
+    source says where the miles came from, e.g. "scgraph:north_america_rail",
+    "usace_nwn", or "manual" for a hand-entered value.
+    """
+
+    miles: float
+    upstream_miles: float = 0.0
+    source: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class LaneRate:
+    """A quoted line-haul rate for one directed lane (a row of the lane rates table).
+
+    weight_basis is "dry" ($ per metric ton of 100% NaOH) or "wet" ($ per
+    metric ton of solution as shipped).
+    """
+
+    usd_per_mt: float
+    weight_basis: str
+    source: str = ""
+
+
+LaneKey = tuple[str, str, Mode]   # (origin site, destination site, mode)
+
+
+@dataclass(frozen=True, slots=True)
 class Node:
     """A location in the supply chain network.
 

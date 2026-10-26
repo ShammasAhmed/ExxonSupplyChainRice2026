@@ -62,12 +62,22 @@ problem) model, solved with Gurobi:
   the `Mode` enum, and `SiteMode`.
 - `network.py` - expands each site into a hub node plus one node per mode,
   joined by load/unload (handling cost) and transport (line-haul) arcs.
-- `routing.py` - line-haul USD/ton per mode from great-circle distance x a
-  per-mode circuity factor. Rates in `config.py` are placeholders.
+- `routing.py` - line-haul USD/ton per lane: a quoted rate from
+  `lane_rates.csv` if there is one, else fixed USD/ton + USD/ton-mile x routed
+  miles (barge miles against the river current cost more). Rates in
+  `config.py` are placeholders.
+- `build_distances.py` - one-off precompute of routed miles into
+  `lane_distances.csv`: truck on OpenStreetMap highways and rail on Class 1
+  lines (both via `scgraph`), barge on the USACE National Waterway Network.
+  Lanes missing from the file fall back to great-circle x circuity.
+- `lane_rates.csv` - EM's quoted line-haul rates in USD/metric ton (dry or wet
+  basis, see `config.SOLUTION_STRENGTH`). Empty until quotes arrive.
 - `model.py` - multimodal min-cost flow MILP per scenario: minimize freight +
   handling + build cost, choosing which candidate modes to build.
 - `main.py` - CLI entry point; runs all three scenarios and writes network
   maps to `output/`.
+- `sensitivity.py` - re-solves every scenario with one mode's rates scaled,
+  optionally only on US <-> Canada lanes.
 - `visualize.py` - Folium map rendering (HTML + PNG).
 
 **Gap vs. the Level 1 plan:** the model currently optimizes **drive time**,
@@ -90,4 +100,17 @@ Run all three scenarios:
 
 ```bash
 python main.py
+```
+
+Rebuild routed lane miles after adding sites or Modes rows (needs internet;
+the waterway network is cached in `.cache/`):
+
+```bash
+python build_distances.py                 # or: --modes barge
+```
+
+Rate sensitivity, e.g. US <-> Canada rail:
+
+```bash
+python sensitivity.py --mode rail --cross-border --multipliers 0.8 1 1.2 1.5
 ```
