@@ -17,8 +17,7 @@ from model import solve_scenario
 from network import build_network
 from node import Node, SiteMode
 from routing import lane_cost, lane_miles
-# from visualize import plot_nodes
-from visualize_folium import plot_nodes
+from visualize import plot_nodes
 
 logger = logging.getLogger("main")
 
