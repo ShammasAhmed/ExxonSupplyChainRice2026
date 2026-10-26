@@ -25,8 +25,8 @@ can serve as the baseline for a later global comparison. Built from:
 - **Supply nodes** - domestic caustic soda producers: locations, production
   capacity ranges, and estimated price (index + markup).
 - **Node costs** - a transport cost model connecting supply and demand nodes,
-  expressed as one of: $/mile transported, $/dry short ton (DST) moved,
-  $/mile-ton, or a fixed $ amount per lane.
+  expressed as one of: USD/mile transported, USD/dry short ton (DST) moved,
+  USD/mile-ton, or a fixed USD amount per lane.
 - **Nodal flow** (optional) - actual EM flow data, to cross-reference the
   model's output against reality.
 
@@ -39,7 +39,7 @@ reference.
 | Window | Milestone |
 | --- | --- |
 | Sept 24 - Oct 12 | Data wrangling: receive and standardize all data from EM |
-| Oct 12 - Oct 19 | Build the model (Supply Chain Guru / Lyric preferred, Gurobi as fallback); the optimal solution should reproduce EM's current network |
+| Oct 12 - Oct 19 | Build the model on Gurobi; the optimal solution should reproduce EM's current network |
 | Oct 19 - Nov 2 | Present the solution to EM for sign-off to proceed to the global sourcing study |
 
 Levels 2 and 3 (the global sourcing study and beyond) are gated on EM
@@ -51,7 +51,7 @@ The repo implements a working single-commodity min-cost-flow (transportation
 problem) model, solved with Gurobi:
 
 - `network.xlsx` - source/sink workbook with `Sources` and `Sinks` sheets
-  (name, city, state, country, lat/lon, bear/base/bull volumes in DMT/yr).
+  (name, city, state, country, lat/lon, bear/base/bull volumes in DST/yr and DMT/yr).
 - `modes.csv` - which transport modes (truck/rail/barge/pipeline) each site
   has, `existing` or `candidate` to build (annualized build cost), plus
   optional throughput caps and forced mode shares. Built from EM's
@@ -62,24 +62,23 @@ problem) model, solved with Gurobi:
   the `Mode` enum, and `SiteMode`.
 - `network.py` - expands each site into a hub node plus one node per mode,
   joined by load/unload (handling cost) and transport (line-haul) arcs.
-- `routing.py` - line-haul $/ton per mode from great-circle distance x a
+- `routing.py` - line-haul USD/ton per mode from great-circle distance x a
   per-mode circuity factor. Rates in `config.py` are placeholders.
 - `model.py` - multimodal min-cost flow MILP per scenario: minimize freight +
   handling + build cost, choosing which candidate modes to build.
 - `main.py` - CLI entry point; runs all three scenarios and writes network
   maps to `output/`.
-- `visualize.py` / `visualize1.py` - Plotly map rendering (HTML + PNG).
+- `visualize.py` - Folium map rendering (HTML + PNG).
 
 **Gap vs. the Level 1 plan:** the model currently optimizes **drive time**,
 not dollar cost, and has no supplier price data. The "Node costs" piece of
-Level 1 ($/mile, $/DST, $/mile-ton, or fixed $ per lane) and supplier
+Level 1 (USD/mile, USD/DST, USD/mile-ton, or fixed USD per lane) and supplier
 index-based pricing still need to be added before the model reflects real
 transport economics.
 
 ## Setup
 
-Requires Python 3.11+ and a Gurobi license (academic licenses are free for
-Rice students/faculty).
+Requires Python 3.11+ and a Gurobi license.
 
 ```bash
 python3 -m venv .venv
