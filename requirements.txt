@@ -5,3 +5,4 @@ plotly>=5.20
 kaleido>=0.2
 folium>=0.15
 selenium>=4.6
+scgraph>=3.6   # build_distances.py only

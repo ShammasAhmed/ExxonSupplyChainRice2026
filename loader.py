@@ -1,5 +1,6 @@
-"""Load network nodes from the network workbook (Sources / Sinks sheets) and
-per-site transport modes from the Modes table."""
+"""Load network nodes from the network workbook (Sources / Sinks sheets),
+per-site transport modes from the Modes table, and the per-lane distance and
+quoted-rate tables."""
 
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from node import Mode, Node, NodeCategory, SiteMode
+from node import LaneDistance, LaneKey, LaneRate, Mode, Node, NodeCategory, SiteMode
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,67 @@ def load_site_modes(path: str | Path) -> list[SiteMode]:
     if dupes:
         raise ValueError(f"{path.name}: duplicate (site, mode) rows: {dupes}")
     return rows
+
+
+def load_lane_distances(path: str | Path) -> dict[LaneKey, LaneDistance]:
+    """Read the routed lane miles written by build_distances.py.
+
+    Columns: origin, destination, mode, miles, upstream_miles, source (other
+    columns are kept for reference and ignored). Returns {} when the file does
+    not exist, so every lane falls back to the great-circle estimate.
+    """
+    out = {}
+    for where, key, row in _read_lane_table(path, ("miles",)):
+        miles = float(row["miles"])
+        if miles < 0:
+            raise ValueError(f"{where}: miles {miles} is negative.")
+        out[key] = LaneDistance(miles, _opt_float(row.get("upstream_miles"), 0.0),
+                                str(row.get("source", "")).strip())
+    return out
+
+
+def load_lane_rates(path: str | Path) -> dict[LaneKey, LaneRate]:
+    """Read quoted line-haul rates.
+
+    Columns: origin, destination, mode, usd_per_mt, weight_basis (dry/wet),
+    source, notes. Returns {} when the file does not exist.
+    """
+    out = {}
+    for where, key, row in _read_lane_table(path, ("usd_per_mt", "weight_basis")):
+        rate = float(row["usd_per_mt"])
+        basis = str(row["weight_basis"]).strip().lower()
+        if rate < 0:
+            raise ValueError(f"{where}: usd_per_mt {rate} is negative.")
+        if basis not in ("dry", "wet"):
+            raise ValueError(f"{where}: weight_basis must be dry/wet, got {basis!r}.")
+        out[key] = LaneRate(rate, basis, str(row.get("source", "")).strip())
+    return out
+
+
+def _read_lane_table(path: str | Path, required: tuple[str, ...]):
+    """Yield (location for error messages, (origin, destination, Mode), row) per lane row."""
+    path = Path(path)
+    if not path.exists():
+        return
+    df = pd.read_csv(path, skipinitialspace=True).dropna(how="all")
+    df.columns = [str(c).strip().lower() for c in df.columns]
+    missing = [c for c in ("origin", "destination", "mode", *required) if c not in df.columns]
+    if missing:
+        raise ValueError(f"{path.name}: missing columns {missing}.")
+
+    seen = set()
+    for idx, row in df.iterrows():
+        where = f"{path.name} row {idx + 2}"
+        try:
+            mode = Mode(str(row["mode"]).strip().lower())
+        except ValueError as exc:
+            raise ValueError(f"{where}: unknown mode {row['mode']!r}; "
+                             f"expected one of {[m.value for m in Mode]}.") from exc
+        key = (str(row["origin"]).strip(), str(row["destination"]).strip(), mode)
+        if key in seen:
+            raise ValueError(f"{where}: duplicate lane {key[0]!r} -> {key[1]!r} [{mode.value}].")
+        seen.add(key)
+        yield where, key, row
 
 
 def _opt_float(value, default):
