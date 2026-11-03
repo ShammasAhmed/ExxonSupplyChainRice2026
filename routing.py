@@ -36,7 +36,7 @@ class CostBasis(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class LaneCost:
-    usd_per_ton: float
+    usd_per_ton: float      # $ per dry short ton
     miles: float
     basis: CostBasis
 
@@ -93,6 +93,7 @@ def lane_cost(a: Node, b: Node, mode: Mode, multiplier: float = 1.0) -> LaneCost
     if p["max_miles"] is not None and dist.miles > p["max_miles"]:
         return None
     billed = max(dist.miles + (p["upstream_factor"] - 1) * dist.upstream_miles, p["min_miles"])
-    usd = (p["fixed_usd_per_ton"] + p["usd_per_ton_mile"] * billed) * multiplier
+    usd_per_wet_ton = p["fixed_usd_per_ton"] + p["usd_per_ton_mile"] * billed
+    usd = usd_per_wet_ton / config.SOLUTION_STRENGTH * multiplier
     basis = CostBasis.ESTIMATED if dist.source == GREAT_CIRCLE else CostBasis.ROUTED
     return LaneCost(usd, dist.miles, basis)

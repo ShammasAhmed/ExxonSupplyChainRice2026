@@ -19,11 +19,15 @@ OUTPUT_DIR = Path("output")
 SCENARIOS = ("bear", "base", "bull")
 
 # --- Transport costs -----------------------------------------------------
-# All $ are per ton of the model's volume unit (DST, see loader.VOLUME_UNIT).
+# The model's volume unit is the dry short ton (DST, see loader.VOLUME_UNIT),
+# but freight is billed on the weight actually loaded. So the rates below and
+# HANDLING_USD_PER_TON are per WET short ton (solution as shipped), and the
+# model divides them by SOLUTION_STRENGTH to get $ per DST.
 #
-# PLACEHOLDERS: rough public order-of-magnitude figures for US bulk liquid
-# chemicals, chosen only so the model runs. Replace them with EM's freight
-# rates before drawing conclusions from the outputs.
+# Every number below cites a row id in RATE_SOURCES_FILE (value, unit, date,
+# URL and page for each). They are public list or benchmark rates, so XOM's
+# contract rates are likely lower (XOM's own rail quote was 0.69x the
+# supplier rate, rate_sources D14).
 #
 #   line haul $/ton = fixed_usd_per_ton + usd_per_ton_mile * billed miles
 #   billed miles    = max(miles + (upstream_factor - 1) * upstream miles, min_miles)
@@ -39,16 +43,33 @@ SCENARIOS = ("bear", "base", "bull")
 #                      (barge only; upstream miles come from build_distances.py)
 #   min_miles          billed distance floor (barge is flat within ~20-30 mi)
 #   max_miles          lanes longer than this are not offered (None = no limit)
+#
+#   truck     Quality Carriers distance tariff for liquid chemicals, fit to
+#             $516 + $5.44/mi per load, plus a 65% fuel surcharge at EIA diesel
+#             of $6.352 (week of 10/26/2026), over 21 wet MT per load (D1-D3).
+#             min_miles reproduces the tariff's $700 flat charge up to 40 mi.
+#   rail      STB 2024 waybill fit for caustic tank cars, $2,062 + $5.014/car-mi,
+#             scaled to the ~$12,000/car supplier rate XOM gave for USGC ->
+#             Edmonton, over 84 wet MT per car (D5, D6).
+#   barge     Kirby Inland Marine Aug 2026 LMR towing tariff, per 1,420-ton
+#             barge: same-zone tow as the fixed part, the downstream rate slope
+#             per mile, loaded upstream / downstream as the upstream factor
+#             (D8-D10). Towing only; barge hire is not public.
+#   pipeline  INGAA 4-inch line cost annualized at the Baytown volume (D13).
+#             No site uses pipeline in MODES_FILE.
+#   circuity  2017 Commodity Flow Survey, basic chemicals (G1); pipeline 1.0
+#             is an assumption.
 MODE_PARAMS = {
-    "truck":    dict(circuity=1.30, fixed_usd_per_ton=8.0, usd_per_ton_mile=0.20, upstream_factor=1.0,
+    "truck":    dict(circuity=1.19, fixed_usd_per_ton=36.78, usd_per_ton_mile=0.3878, upstream_factor=1.0,
+                     min_miles=34, max_miles=None),
+    "rail":     dict(circuity=1.45, fixed_usd_per_ton=18.66, usd_per_ton_mile=0.04537, upstream_factor=1.0,
                      min_miles=0,  max_miles=None),
-    "rail":     dict(circuity=1.25, fixed_usd_per_ton=6.0, usd_per_ton_mile=0.06, upstream_factor=1.0,
-                     min_miles=0,  max_miles=None),
-    "barge":    dict(circuity=1.60, fixed_usd_per_ton=2.0, usd_per_ton_mile=0.03, upstream_factor=1.25,
-                     min_miles=30, max_miles=None),
-    "pipeline": dict(circuity=1.00, fixed_usd_per_ton=0.0, usd_per_ton_mile=0.05, upstream_factor=1.0,
+    "barge":    dict(circuity=1.60, fixed_usd_per_ton=1.863, usd_per_ton_mile=0.0290, upstream_factor=1.173,
+                     min_miles=30, max_miles=None),   # min_miles: XOM, flat within ~20-30 mi (X6)
+    "pipeline": dict(circuity=1.00, fixed_usd_per_ton=0.0, usd_per_ton_mile=0.2005, upstream_factor=1.0,
                      min_miles=0,  max_miles=25),
 }
+RATE_SOURCES_FILE = "sources/rate_sources.csv"
 
 # --- Quoted rates (LANE_RATES_FILE) --------------------------------------
 # Quotes are in $/metric ton, on a dry (100% NaOH) or wet (as-shipped
@@ -57,9 +78,12 @@ MODE_PARAMS = {
 SOLUTION_STRENGTH = 0.50       # dry tons NaOH per wet ton shipped
 METRIC_TONS_PER_SHORT_TON = 0.90718474
 
-# Cost to load or unload one ton at a site, by mode (charged once at each
-# end of a lane, and twice when product changes mode at a terminal).
-HANDLING_USD_PER_TON = {"truck": 2.0, "rail": 4.0, "barge": 3.0, "pipeline": 0.0}
+# Cost to load or unload one wet short ton at a site, by mode (charged once at
+# each end of a lane, and twice when product changes mode at a terminal).
+# Truck and rail carriers charge nothing within free time and their rates
+# exclude loading (D4, D7). Barge: Kirby dock shift + fleeting in/out per
+# barge (D11).
+HANDLING_USD_PER_TON = {"truck": 0.0, "rail": 0.0, "barge": 1.433, "pipeline": 0.0}
 
 # --- Modular exclusions --------------------------------------------------
 # Any node whose name is listed here is dropped before edges/model/maps are

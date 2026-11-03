@@ -121,7 +121,7 @@ def plot_nodes(
     if flows:
         by_name = {n.name: n for n in nodes}
         mode_groups: dict[Mode, folium.FeatureGroup] = {}
-        label_group = folium.FeatureGroup(name="Flow labels (DMT/yr)", show=True)
+        label_group = folium.FeatureGroup(name="Flow labels (DST/yr)", show=True)
         per_pair: dict[tuple[str, str], int] = {}
 
         for (src, snk, mode), vol in flows.items():
