@@ -21,8 +21,9 @@ SHEET_CATEGORIES = {
     "Intermediates": NodeCategory.INTERMEDIATE,
 }
 
-# Canonical model unit. The workbook also carries DST (short ton) columns, but
-# those are Excel formulas derived from the DMT columns, so DMT is read directly.
+# Canonical model unit: dry short tons (100% NaOH). The workbook also carries
+# DMT columns; on some rows DST is the typed value and DMT a formula, on others
+# the reverse, so the DST columns are read as Excel last cached them.
 VOLUME_UNIT = "DST/yr"
 
 _US_ALIASES = {"US", "USA", "U.S.", "U.S.A.", "UNITED STATES", "UNITED STATES OF AMERICA"}

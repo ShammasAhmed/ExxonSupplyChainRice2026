@@ -8,3 +8,6 @@ output/
 network_map.html
 network_map.png
 .cache/
+
+# Per-person Claude skill state
+.claude/meeting-notes-state.json

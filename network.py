@@ -126,7 +126,7 @@ def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode], *,
 
     arcs: list[Arc] = []
     for (site, mode), sm in modes.items():
-        handling = config.HANDLING_USD_PER_TON[mode]
+        handling = config.HANDLING_USD_PER_TON[mode] / config.SOLUTION_STRENGTH  # wet ton -> DST
         n = sites[site]
         if n.is_source or n.is_intermediate:
             arcs.append(Arc((site, HUB), (site, mode), ArcKind.LOAD, sm.mode, handling))

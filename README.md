@@ -65,7 +65,9 @@ problem) model, solved with Gurobi:
 - `routing.py` - line-haul USD/ton per lane: a quoted rate from
   `lane_rates.csv` if there is one, else fixed USD/ton + USD/ton-mile x routed
   miles (barge miles against the river current cost more). Rates in
-  `config.py` are placeholders.
+  `config.py` come from public tariffs and benchmarks, each citing a row in
+  `sources/rate_sources.csv` (value, date, URL, page). They are per wet
+  (as-shipped) short ton and are converted to USD per dry short ton using `config.SOLUTION_STRENGTH`.
 - `build_distances.py` - one-off precompute of routed miles into
   `lane_distances.csv`: truck on OpenStreetMap highways and rail on Class 1
   lines (both via `scgraph`), barge on the USACE National Waterway Network.
