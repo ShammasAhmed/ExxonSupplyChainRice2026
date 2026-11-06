@@ -45,74 +45,133 @@ reference.
 Levels 2 and 3 (the global sourcing study and beyond) are gated on EM
 approving the Level 1 model.
 
-## Current State (as of 2026-10-07)
+**Where we are (2026-11-05):** the Level 1 North America model is built and
+uses sourced public freight rates. XOM is checking those rates in the
+rate-check workbook (`export_rate_check.py`). Level 2 work has started:
+regional caustic price comparisons, China nodes, and rail routes from the Gulf
+Coast through Chicago to Sarnia and Edmonton.
 
-The repo implements a working single-commodity min-cost-flow (transportation
-problem) model, solved with Gurobi:
+## Quickstart
 
-- `network.xlsx` - source/sink workbook with `Sources` and `Sinks` sheets
-  (name, city, state, country, lat/lon, bear/base/bull volumes in DST/yr and DMT/yr).
-- `modes.csv` - which transport modes (truck/rail/barge/pipeline) each site
-  has, `existing` or `candidate` to build (annualized build cost), plus
-  optional throughput caps and forced mode shares. Built from EM's
-  `Rice caustic model data` sheet.
-- `loader.py` - reads the workbook into `Node` objects and `modes.csv` into
-  `SiteMode` rows.
-- `node.py` - the `Node` dataclass (location, category, scenario volumes),
-  the `Mode` enum, and `SiteMode`.
-- `network.py` - expands each site into a hub node plus one node per mode,
-  joined by load/unload (handling cost) and transport (line-haul) arcs.
-- `routing.py` - line-haul USD/ton per lane: a quoted rate from
-  `lane_rates.csv` if there is one, else fixed USD/ton + USD/ton-mile x routed
-  miles (barge miles against the river current cost more). Rates in
-  `config.py` come from public tariffs and benchmarks, each citing a row in
-  `sources/rate_sources.csv` (value, date, URL, page). They are per wet
-  (as-shipped) short ton and are converted to USD per dry short ton using `config.SOLUTION_STRENGTH`.
-- `build_distances.py` - one-off precompute of routed miles into
-  `lane_distances.csv`: truck on OpenStreetMap highways and rail on Class 1
-  lines (both via `scgraph`), barge on the USACE National Waterway Network.
-  Lanes missing from the file fall back to great-circle x circuity.
-- `lane_rates.csv` - EM's quoted line-haul rates in USD/metric ton (dry or wet
-  basis, see `config.SOLUTION_STRENGTH`). Empty until quotes arrive.
-- `model.py` - multimodal min-cost flow MILP per scenario: minimize freight +
-  handling + build cost, choosing which candidate modes to build.
-- `main.py` - CLI entry point; runs all three scenarios and writes network
-  maps to `output/`.
-- `sensitivity.py` - re-solves every scenario with one mode's rates scaled,
-  optionally only on US <-> Canada lanes.
-- `visualize.py` - Folium map rendering (HTML + PNG).
-
-**Gap vs. the Level 1 plan:** the model currently optimizes **drive time**,
-not dollar cost, and has no supplier price data. The "Node costs" piece of
-Level 1 (USD/mile, USD/DST, USD/mile-ton, or fixed USD per lane) and supplier
-index-based pricing still need to be added before the model reflects real
-transport economics.
-
-## Setup
-
-Requires Python 3.11+ and a Gurobi license.
+Requires Python 3.11+ and a Gurobi license (free for academic use).
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-Run all three scenarios:
-
-```bash
 python main.py
 ```
 
-Rebuild routed lane miles after adding sites or Modes rows (needs internet;
-the waterway network is cached in `.cache/`):
+`main.py` solves the bear, base and bull scenarios. For each one it prints the
+total cost, the cost breakdown and every lane used, and it writes a map to
+`output/network_map_<scenario>.html` (plus a `.png` if selenium can find
+Chrome). Part of the output:
 
-```bash
-python build_distances.py                 # or: --modes barge
+```text
+20 sites, 31 site-modes (3 candidates to build), 132 arcs
+
+[base] OPTIMAL  delivered=197,592 DST/yr  total=$16,300,276/yr ($82.49/ton)  lanes used=15
+   line haul=$15,659,942  handling=$640,334  build=$0
+       44,439  Olin Plaquemine Plant  ->  Baton Rouge Complex  [barge]   ($5.95/ton, 33 mi, routed)
+       43,455  Covestro Baytown Industrial Complex  ->  Baytown Complex  [barge]   ($5.47/ton, 16 mi, routed)
+       ...
 ```
 
-Rate sensitivity, e.g. US <-> Canada rail:
+Other scripts:
 
-```bash
-python sensitivity.py --mode rail --cross-border --multipliers 0.8 1 1.2 1.5
-```
+| Command | What it does |
+| --- | --- |
+| `python export_rate_check.py` | Writes `output/XOM_rate_check.xlsx`, the workbook XOM uses to check our freight rates. Every cost is a live formula on the rate inputs. It also has the rail lanes, a Chicago hub comparison and the source of every number. |
+| `python sensitivity.py --mode rail --cross-border --multipliers 0.8 1 1.2 1.5` | Re-solves every scenario with one mode's line-haul rates scaled. `--cross-border` scales only US <-> Canada lanes. Writes `output/sensitivity_<scope>.csv`. |
+| `python build_distances.py` | Recomputes routed miles into `lane_distances.csv`. Only needed after adding sites or `modes.csv` rows (`--modes barge` redoes one mode). Needs internet; the waterway network is cached in `.cache/`. |
+
+Common changes:
+
+- **Add or move a site:** edit `network.xlsx` (`Sources` / `Sinks`, or an
+  `Intermediates` sheet for transfer hubs), add its modes to `modes.csv`, then
+  rerun `build_distances.py`.
+- **Change a rate:** edit `MODE_PARAMS` in `config.py`, and cite a row in
+  `sources/rate_sources.csv`.
+- **Use a quoted rate for one lane:** add a row to `lane_rates.csv`. It
+  replaces the rate formula for that lane.
+- **Leave a site out:** add its name to `EXCLUDED_NODES` in `config.py`.
+
+## How the model works
+
+One min-cost-flow MILP per scenario, solved with Gurobi (`model.py`):
+
+- **Network** (`network.py`): each site becomes a hub node plus one node per
+  transport mode it has. Load/unload arcs between the hub and its mode nodes
+  carry handling cost, and transport arcs between sites carry line-haul cost.
+  This way, changing mode at a terminal costs a second round of handling.
+- **Objective:** minimize line haul + handling + annualized build cost of
+  candidate modes, in $/yr. Supplier product price is not in the model yet.
+- **Constraints:** sources ship at most their supply; sinks get exactly their
+  demand; optional per-mode capacity and minimum demand share from
+  `modes.csv`; a candidate mode carries flow only if the model builds it
+  (binary).
+- **Line haul** (`routing.py`): a quoted rate from `lane_rates.csv` if there
+  is one, else fixed $/ton + $/ton-mile x routed miles. Barge miles against
+  the river current cost more, and short barge and truck moves have a minimum
+  billed distance.
+- **Units:** volumes are dry short tons (DST/yr). Freight is billed on wet
+  (as-shipped, 50% solution) tons, so rates are converted with
+  `config.SOLUTION_STRENGTH`. Quotes in `lane_rates.csv` are in $/metric ton.
+
+**Rates.** Every rate in `config.py` and every build cost in `modes.csv` cites
+a row in `sources/rate_sources.csv` (value, date, URL, page):
+
+- Truck: Quality Carriers liquid chemical tariff, plus fuel surcharge.
+- Rail: STB 2024 waybill fit for caustic tank cars, scaled to the ~$12,000/car
+  supplier rate XOM gave for Gulf Coast -> Edmonton.
+- Barge: Kirby Inland Marine Aug 2026 towing tariffs (towing only; barge hire
+  is not public).
+
+These are public list rates, so XOM's contract rates are probably lower.
+
+## Repo map
+
+**Inputs**
+
+| File | Contents |
+| --- | --- |
+| `network.xlsx` | `Sources` and `Sinks` sheets: 10 suppliers and 10 EM sites in the US and Canada, with location and bear/base/bull volumes (DST/yr and DMT/yr). |
+| `modes.csv` | Modes each site has: `existing`, or `candidate` with an annualized build cost. Optional capacity and minimum share. Built from EM's caustic model data sheet. |
+| `lane_distances.csv` | Routed miles per lane, written by `build_distances.py`: truck on OpenStreetMap highways, rail on Class 1 lines, barge on the USACE National Waterway Network. |
+| `lane_rates.csv` | Quoted line-haul rates per lane. Empty for now. |
+| `rail_lanes.csv` | Existing and candidate rail lanes: serving railroads, likely route, interchanges. Used by the rate-check workbook. |
+| `site_rail_access.csv` | Railroads serving each site, with confidence and sources. Used by the rate-check workbook. |
+| `sources/rate_sources.csv` | Source of every rate and assumption. IDs start with X (XOM-stated), D (derived) or A (team assumption). |
+
+**Code**
+
+| File | Role |
+| --- | --- |
+| `config.py` | Every setting: file paths, scenarios, rates, solution strength, handling cost, excluded sites and lanes. |
+| `loader.py`, `node.py` | Read the workbook and `modes.csv` into `Node` and `SiteMode` objects. |
+| `network.py` | Builds the hub + mode node graph and its arcs. |
+| `routing.py` | Line-haul $/ton for each lane. |
+| `model.py` | The Gurobi MILP. |
+| `main.py` | Runs all scenarios, prints results and draws maps. |
+| `visualize.py` | Folium map rendering (HTML + PNG). |
+| `sensitivity.py`, `export_rate_check.py`, `build_distances.py` | See [Quickstart](#quickstart). |
+| `sources/cfs_circuity.py`, `sources/puws_caustic.py` | One-off scripts that derived the circuity factors and the rail rate fit from public datasets (download links are in each file). |
+
+**Outputs** go to `output/`, which is gitignored.
+
+## Status and open gaps (as of 2026-11-05)
+
+- **No product price.** The model minimizes delivered freight cost only, so it
+  can't yet say whether imported caustic is cheaper. Regional price
+  comparisons (US vs. Canada, EU, China and India) are in progress outside the
+  repo.
+- **North America only.** There are no global or China nodes and no ocean
+  mode yet.
+- **No Chicago hub in the model.** The Gulf Coast -> Chicago (IMTT Lemont) ->
+  Canada comparison exists only on the rate-check workbook's `Chicago hub`
+  sheet. Final rail routes to Sarnia and Edmonton are still being worked out.
+- **Supply equals demand** in every scenario, so there is no slack and the
+  candidate builds (Joliet rail and barge, Sarnia rail) never pay off.
+- **No XOM rate quotes.** XOM can't share contract rates, so they are
+  checking our estimates in the rate-check workbook instead, and
+  `lane_rates.csv` stays empty.
