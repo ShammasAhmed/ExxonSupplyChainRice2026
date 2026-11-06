@@ -9,5 +9,5 @@ network_map.html
 network_map.png
 .cache/
 
-# Per-person Claude skill state
-.claude/meeting-notes-state.json
+# Claude Code settings, skills and state (per person)
+.claude/
