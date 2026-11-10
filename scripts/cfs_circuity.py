@@ -2,7 +2,7 @@
 
 Data: https://www2.census.gov/programs-surveys/cfs/datasets/2017/cfs-2017-puf-csv.zip
 
-    python sources/cfs_circuity.py CFS_2017_PUF_CSV.csv
+    python scripts/cfs_circuity.py CFS_2017_PUF_CSV.csv
 """
 import sys, pandas as pd, numpy as np
 df=pd.read_csv(sys.argv[1],dtype={'MODE':str,'SCTG':str,'HAZMAT':str,'EXPORT_YN':str},usecols=['SCTG','MODE','SHIPMT_WGHT','SHIPMT_DIST_GC','SHIPMT_DIST_ROUTED','HAZMAT','WGT_FACTOR','EXPORT_YN'])

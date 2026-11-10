@@ -2,21 +2,54 @@
 
 from pathlib import Path
 
-# --- Inputs / outputs ----------------------------------------------------
-WORKBOOK = "network.xlsx"
-# Which modes each site supports (existing or candidate to build). A .csv
-# file, or a workbook path to read its "Modes" sheet instead.
-MODES_FILE = "modes.csv"
+# --- File paths ----------------------------------------------------------
+# Every file the code reads or writes is named here. Paths are anchored to the
+# repo folder, so scripts work from any working directory.
+ROOT = Path(__file__).resolve().parent
+DATA_DIR = ROOT / "data"
+
+# data/model/: inputs the optimization reads. Editing these changes results.
+MODEL_DATA_DIR = DATA_DIR / "model"
+# Sources, sinks (and optional intermediates): location and base-scenario
+# volume in DST/yr. Bear / bull volumes come from SCENARIO_MULTIPLIERS.
+SITES_FILE = MODEL_DATA_DIR / "sites.csv"
+# Which modes each site supports (existing or candidate to build).
+MODES_FILE = MODEL_DATA_DIR / "modes.csv"
 # Routed lane miles, written by build_distances.py. Lanes missing from it fall
 # back to great-circle distance x circuity (see routing.py).
-LANE_DISTANCES_FILE = "lane_distances.csv"
+LANE_DISTANCES_FILE = MODEL_DATA_DIR / "lane_distances.csv"
 # Quoted line-haul rates ($/metric ton). A quote replaces the rate formula
 # for that lane; handling is still charged on the transfer arcs.
-LANE_RATES_FILE = "lane_rates.csv"
-OUTPUT_DIR = Path("output")
+LANE_RATES_FILE = MODEL_DATA_DIR / "lane_rates.csv"
+
+# data/reference/: research the model does not read. Only the XOM rate-check
+# workbook (export_rate_check.py) uses these.
+REFERENCE_DATA_DIR = DATA_DIR / "reference"
+# Source of every rate and assumption below (ids X = XOM, D = derived, A = assumption).
+RATE_SOURCES_FILE = REFERENCE_DATA_DIR / "rate_sources.csv"
+# Existing and candidate rail lanes: railroads, likely route, interchanges.
+RAIL_LANES_FILE = REFERENCE_DATA_DIR / "rail_lanes.csv"
+# Railroads serving each site, with confidence and sources.
+SITE_RAIL_FILE = REFERENCE_DATA_DIR / "site_rail_access.csv"
+# The original site workbook is also kept in REFERENCE_DATA_DIR (network.xlsx)
+# to show where SITES_FILE came from. No code reads it; edit SITES_FILE.
+
+# Outputs (git-ignored). {scenario} / {scope} are filled in by the scripts.
+OUTPUT_DIR = ROOT / "output"
+NETWORK_MAP_NAME = "network_map_{scenario}"            # main.py, + .html / .png
+SENSITIVITY_NAME = "sensitivity_{scope}.csv"           # sensitivity.py
+RATE_CHECK_NAME = "XOM_rate_check.xlsx"                # export_rate_check.py
+SITES_MAP_NAME = "network_map"                         # visualize.py run directly, + .html / .png
+MAP_PREVIEW_FILE = OUTPUT_DIR / "_network_map_preview.html"   # visualize.plot_nodes(show=True)
+
+# Downloaded data (git-ignored): the USACE waterway network for build_distances.py.
+CACHE_DIR = ROOT / ".cache"
+NWN_CACHE_FILE = CACHE_DIR / "nwn.json"
 
 # --- Scenarios -----------------------------------------------------------
-SCENARIOS = ("bear", "base", "bull")
+# Volume in each scenario = base_dst_per_yr in SITES_FILE x this multiplier.
+SCENARIO_MULTIPLIERS = {"bear": 0.8, "base": 1.0, "bull": 1.2}
+SCENARIOS = tuple(SCENARIO_MULTIPLIERS)
 
 # --- Transport costs -----------------------------------------------------
 # The model's volume unit is the dry short ton (DST, see loader.VOLUME_UNIT),
@@ -69,7 +102,6 @@ MODE_PARAMS = {
     "pipeline": dict(circuity=1.00, fixed_usd_per_ton=0.0, usd_per_ton_mile=0.2005, upstream_factor=1.0,
                      min_miles=0,  max_miles=25),
 }
-RATE_SOURCES_FILE = "sources/rate_sources.csv"
 
 # --- Quoted rates (LANE_RATES_FILE) --------------------------------------
 # Quotes are in $/metric ton, on a dry (100% NaOH) or wet (as-shipped
@@ -88,7 +120,7 @@ HANDLING_USD_PER_TON = {"truck": 0.0, "rail": 0.0, "barge": 1.433, "pipeline": 0
 # --- Modular exclusions --------------------------------------------------
 # Any node whose name is listed here is dropped before edges/model/maps are
 # built. Remove a name to bring it back (e.g. delete the Alaska line).
-# Names must match the workbook exactly.
+# Names must match SITES_FILE exactly.
 EXCLUDED_NODES: set[str] = {
     # "North Slope Processing Facilities",   # Prudhoe Bay, AK: no road link from the lower 48 without Canada
 }

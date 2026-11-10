@@ -1,0 +1,21 @@
+name,role,city,state,country,longitude,latitude,base_dst_per_yr,notes
+Olin Chlor Alkali Freeport Complex,source,Freeport,Texas,USA,-95.3597,28.9543,6175,
+Westlake Chemical Lake Charles Complex,source,Lake Charles,Louisiana,USA,-93.2842,30.2131,5040,
+Olin Plaquemine Plant,source,Plaquemine,Louisiana,USA,-91.223,30.268,45856,"Sum of 44,440 + 1,416 DST/yr"
+Covestro Baytown Industrial Complex,source,Baytown,Texas,USA,-94.909938,29.77321,72980,"Sum of 34,927 + 8,528 + 22,400 + 7,125 DST/yr"
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",source,Lemont,Illinois,USA,-87.989708,41.680581,19260,
+Brenntag Edmonton,source,Edmonton,Alberta,Canada,-113.3955,53.5035,1102.31,"Given as 1,000 DMT/yr (x 1.10231 DST per DMT)"
+Quadra Toronto,source,Toronto,Ontario,Canada,-79.779,43.4079,1763.696,"Given as 1,600 DMT/yr (x 1.10231 DST per DMT)"
+Brenntag Toronto,source,Toronto,Ontario,Canada,-79.563,43.642,1322.772,"Given as 1,200 DMT/yr (x 1.10231 DST per DMT)"
+Quadra Edmonton,source,Edmonton,Alberta,Canada,-113.5712,53.5877,27557.75,"Given as 25,000 DMT/yr (x 1.10231 DST per DMT)"
+Univar Edmonton,source,Edmonton,Alberta,Canada,-113.125,53.755,16534.65,"Given as 15,000 DMT/yr (x 1.10231 DST per DMT)"
+Joliet Refinery,sink,Channahon / Joliet,Illinois,USA,-88.1803,41.4286,19260,
+Baton Rouge Complex,sink,Baton Rouge,Louisiana,USA,-91.1895,30.4851,45856,
+Baytown Complex,sink,Baytown,Texas,USA,-95.0118,29.7402,43455,
+Beaumont Complex,sink,Beaumont,Texas,USA,-94.0847,30.0683,34565,
+Gulf Coast Growth Ventures (GCGV),sink,San Patricio County / Corpus Christi,Texas,USA,-97.2883,27.915,6175,
+Strathcona Refinery,sink,Edmonton,Alberta,Canada,-113.3917,53.5461,1102.31,"Given as 1,000 DMT/yr (x 1.10231 DST per DMT)"
+Nanticoke Refinery,sink,Nanticoke,Ontario,Canada,-80.0517,42.8375,1763.696,"Given as 1,600 DMT/yr (x 1.10231 DST per DMT)"
+Sarnia Refinery,sink,Sarnia,Ontario,Canada,-82.416,42.9519,1322.772,"Given as 1,200 DMT/yr (x 1.10231 DST per DMT)"
+Cold Lake,sink,Cold Lake,Alberta,Canada,-110.472,54.6121,27557.75,"Given as 25,000 DMT/yr (x 1.10231 DST per DMT)"
+Kearl,sink,Kearl,Alberta,Canada,-111.2464,57.2952,16534.65,"Given as 15,000 DMT/yr (x 1.10231 DST per DMT)"

@@ -1,81 +1,87 @@
-"""Load network nodes from the network workbook (Sources / Sinks sheets),
-per-site transport modes from the Modes table, and the per-lane distance and
-quoted-rate tables."""
+"""Load the model inputs in config.MODEL_DATA_DIR: sites (sources / sinks),
+per-site transport modes, and the per-lane distance and quoted-rate tables."""
 
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
 
 import pandas as pd
 
+import config
 from node import LaneDistance, LaneKey, LaneRate, Mode, Node, NodeCategory, SiteMode
 
 logger = logging.getLogger(__name__)
 
-# Sheet name -> node category. Sheets not listed here (e.g. "Edges") are ignored.
-SHEET_CATEGORIES = {
-    "Sources": NodeCategory.SOURCE,
-    "Sinks": NodeCategory.SINK,
-    "Intermediates": NodeCategory.INTERMEDIATE,
-}
-
-# Canonical model unit: dry short tons (100% NaOH). The workbook also carries
-# DMT columns; on some rows DST is the typed value and DMT a formula, on others
-# the reverse, so the DST columns are read as Excel last cached them.
+# Canonical model unit: dry short tons (100% NaOH) per year.
 VOLUME_UNIT = "DST/yr"
 
 _US_ALIASES = {"US", "USA", "U.S.", "U.S.A.", "UNITED STATES", "UNITED STATES OF AMERICA"}
 
-# Header patterns, matched case-insensitively against the column headers, so
-# "Name" vs "Facility Name" or "Bear Production" vs "Bear Demand" both work.
-_COLUMN_PATTERNS = {
-    "name": r"name$",
-    "city": r"^city$",
-    "state": r"^state$",
-    "country": r"^country$",
-    "lon": r"^long(itude)?$",
-    "lat": r"^lat(itude)?$",
-    "bear": rf"^bear\b.*\({re.escape(VOLUME_UNIT)}\)$",
-    "base": rf"^base\b.*\({re.escape(VOLUME_UNIT)}\)$",
-    "bull": rf"^bull\b.*\({re.escape(VOLUME_UNIT)}\)$",
-}
+_SITE_COLUMNS = ("name", "role", "city", "state", "country", "longitude", "latitude", "base_dst_per_yr")
 
 
 def load_nodes(path: str | Path) -> list[Node]:
-    """Read every known node sheet in the workbook and return a list of Nodes.
+    """Read the sites table and return a list of Nodes.
 
-    Raises ValueError for missing columns, duplicate names, or bad values.
+    Columns: name, role (source/sink/intermediate), city, state, country,
+    longitude, latitude, base_dst_per_yr, notes. Each scenario's volume is
+    base_dst_per_yr x config.SCENARIO_MULTIPLIERS; it may be blank only for
+    intermediates. Raises ValueError for missing columns, duplicate names, or
+    bad values.
     """
-    sheets = pd.read_excel(path, sheet_name=None)  # dict of all sheets
-    nodes: list[Node] = []
+    path = Path(path)
+    df = pd.read_csv(path, skipinitialspace=True).dropna(how="all")
+    df.columns = [str(c).strip().lower() for c in df.columns]
+    missing = [c for c in _SITE_COLUMNS if c not in df.columns]
+    if missing:
+        raise ValueError(f"{path.name}: missing columns {missing}. Headers: {list(df.columns)}")
 
-    for sheet_name, df in sheets.items():
-        category = SHEET_CATEGORIES.get(sheet_name.strip())
-        if category is None:
-            logger.info("Skipping sheet %r (not a node sheet).", sheet_name)
-            continue
-        nodes.extend(_parse_sheet(df, sheet_name, category))
+    nodes: list[Node] = []
+    for idx, row in df.iterrows():
+        where = f"{path.name} row {idx + 2}"
+        name = str(row["name"]).strip()
+        try:
+            category = NodeCategory(str(row["role"]).strip().lower())
+        except ValueError as exc:
+            raise ValueError(f"{where} ({name!r}): role must be one of "
+                             f"{[c.value for c in NodeCategory]}, got {row['role']!r}.") from exc
+        base = _opt_float(row["base_dst_per_yr"], None)
+        if base is None:
+            if category is not NodeCategory.INTERMEDIATE:
+                raise ValueError(f"{where} ({name!r}): base_dst_per_yr is blank.")
+            base = 0.0
+        country = str(row["country"]).strip()
+        lat, lon = _coords(row["latitude"], row["longitude"], country, name, where)
+        try:
+            nodes.append(Node(
+                name=name,
+                city=str(row["city"]).strip(),
+                state=str(row["state"]).strip(),
+                country=country,
+                category=category,
+                coords=(lat, lon),
+                **{s: base * k for s, k in config.SCENARIO_MULTIPLIERS.items()},
+            ))
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"{where} ({name!r}): {exc}") from exc
 
     names = [n.name for n in nodes]
     dupes = sorted({n for n in names if names.count(n) > 1})
     if dupes:
-        raise ValueError(f"Duplicate node names across sheets: {dupes}")
+        raise ValueError(f"{path.name}: duplicate site names: {dupes}")
     return nodes
 
 
 def load_site_modes(path: str | Path) -> list[SiteMode]:
-    """Read the Modes table: a .csv file, or the "Modes" sheet of a workbook.
+    """Read the modes table (config.MODES_FILE).
 
     Columns: site, mode, status (existing/candidate), build_cost_usd_per_yr,
     capacity_dst_per_yr, min_demand_share, notes. Blank optional cells mean
     0 build cost, no capacity cap, and no forced share.
     """
     path = Path(path)
-    df = (pd.read_csv(path) if path.suffix.lower() == ".csv"
-          else pd.read_excel(path, sheet_name="Modes"))
-    df = df.dropna(how="all")
+    df = pd.read_csv(path).dropna(how="all")
     df.columns = [str(c).strip().lower() for c in df.columns]
 
     rows: list[SiteMode] = []
@@ -174,59 +180,7 @@ def _opt_float(value, default):
     return default if value is None or pd.isna(value) or str(value).strip() == "" else float(value)
 
 
-def _parse_sheet(df: pd.DataFrame, sheet_name: str, category: NodeCategory) -> list[Node]:
-    cols = _map_columns(df, sheet_name)
-
-    # Drop fully blank rows (Excel often has trailing empty formatted rows).
-    df = df.dropna(how="all")
-    df = df[df[cols["name"]].notna()]
-
-    nodes = []
-    for idx, row in df.iterrows():
-        excel_row = idx + 2  # header is row 1, pandas index is 0-based
-        name = str(row[cols["name"]]).strip()
-        country = str(row[cols["country"]]).strip()
-        lat, lon = _coords(row[cols["lat"]], row[cols["lon"]], country, name, sheet_name, excel_row)
-        try:
-            nodes.append(Node(
-                name=name,
-                city=str(row[cols["city"]]).strip(),
-                state=str(row[cols["state"]]).strip(),
-                country=country,
-                category=category,
-                coords=(lat, lon),
-                bear=float(row[cols["bear"]]),
-                base=float(row[cols["base"]]),
-                bull=float(row[cols["bull"]]),
-            ))
-        except (ValueError, TypeError) as exc:
-            raise ValueError(f"{sheet_name} row {excel_row} ({name!r}): {exc}") from exc
-
-        n = nodes[-1]
-        if not (n.bear <= n.base <= n.bull):
-            logger.warning("%s row %d (%r): scenarios not ordered bear <= base <= bull.",
-                           sheet_name, excel_row, name)
-    return nodes
-
-
-def _map_columns(df: pd.DataFrame, sheet_name: str) -> dict[str, str]:
-    """Find the actual header for each field using _COLUMN_PATTERNS."""
-    headers = [str(c).strip() for c in df.columns]
-    mapping, missing = {}, []
-    for field, pattern in _COLUMN_PATTERNS.items():
-        matches = [h for h in headers if re.match(pattern, h, flags=re.IGNORECASE)]
-        if len(matches) == 1:
-            mapping[field] = df.columns[headers.index(matches[0])]
-        elif not matches:
-            missing.append(field)
-        else:
-            raise ValueError(f"Sheet {sheet_name!r}: ambiguous columns for {field!r}: {matches}")
-    if missing:
-        raise ValueError(f"Sheet {sheet_name!r}: missing columns for {missing}. Headers: {headers}")
-    return mapping
-
-
-def _coords(lat, lon, country, name, sheet_name, excel_row) -> tuple[float, float]:
+def _coords(lat, lon, country, name, where) -> tuple[float, float]:
     """Return (lat, lon), correcting rows where the two columns are swapped.
 
     A swap is detected when the 'latitude' is outside [-90, 90], or, for US
@@ -236,8 +190,8 @@ def _coords(lat, lon, country, name, sheet_name, excel_row) -> tuple[float, floa
     lat, lon = float(lat), float(lon)
     swapped = abs(lat) > 90 or (country.upper() in _US_ALIASES and lat < 0 < lon)
     if swapped:
-        logger.warning("%s row %d (%r): latitude/longitude look swapped; correcting to (%s, %s).",
-                       sheet_name, excel_row, name, lon, lat)
+        logger.warning("%s (%r): latitude/longitude look swapped; correcting to (%s, %s).",
+                       where, name, lon, lat)
         lat, lon = lon, lat
     return lat, lon
 
@@ -246,6 +200,6 @@ if __name__ == "__main__":
     import sys
 
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
-    for n in load_nodes(sys.argv[1] if len(sys.argv) > 1 else "network.xlsx"):
+    for n in load_nodes(sys.argv[1] if len(sys.argv) > 1 else config.SITES_FILE):
         print(f"{n.category.value:<12} {n.name:<42} ({n.lat:8.4f}, {n.lon:9.4f})  "
               f"base={n.base:>12,.0f} {VOLUME_UNIT}")

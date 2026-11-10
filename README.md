@@ -31,8 +31,8 @@ can serve as the baseline for a later global comparison. Built from:
   model's output against reality.
 
 All data is modeled with low/high/mean range scenarios (bear/base/bull), and
-weights are converted to dry short tons (DST), with metric tons kept for
-reference.
+weights are converted to dry short tons (DST). Bear and bull volumes are 0.8x
+and 1.2x base (`SCENARIO_MULTIPLIERS` in `config.py`).
 
 **Level 1 timeline:**
 
@@ -62,6 +62,11 @@ pip install -r requirements.txt
 python main.py
 ```
 
+Optional: for the lighter CARTO basemap on the maps, get a free key at
+https://carto.com/basemaps/apikey/ and add `export CARTO_API_KEY=<your key>` to
+your `~/.zshrc`. Never commit the key. Without it, maps use OpenStreetMap
+tiles.
+
 `main.py` solves the bear, base and bull scenarios. For each one it prints the
 total cost, the cost breakdown and every lane used, and it writes a map to
 `output/network_map_<scenario>.html` (plus a `.png` if selenium can find
@@ -83,17 +88,21 @@ Other scripts:
 | --- | --- |
 | `python export_rate_check.py` | Writes `output/XOM_rate_check.xlsx`, the workbook XOM uses to check our freight rates. Every cost is a live formula on the rate inputs. It also has the rail lanes, a Chicago hub comparison and the source of every number. |
 | `python sensitivity.py --mode rail --cross-border --multipliers 0.8 1 1.2 1.5` | Re-solves every scenario with one mode's line-haul rates scaled. `--cross-border` scales only US <-> Canada lanes. Writes `output/sensitivity_<scope>.csv`. |
-| `python build_distances.py` | Recomputes routed miles into `lane_distances.csv`. Only needed after adding sites or `modes.csv` rows (`--modes barge` redoes one mode). Needs internet; the waterway network is cached in `.cache/`. |
+| `python build_distances.py` | Recomputes routed miles into `data/model/lane_distances.csv`. Only needed after adding sites or `modes.csv` rows (`--modes barge` redoes one mode). Needs internet; the waterway network is cached in `.cache/`. |
 
 Common changes:
 
-- **Add or move a site:** edit `network.xlsx` (`Sources` / `Sinks`, or an
-  `Intermediates` sheet for transfer hubs), add its modes to `modes.csv`, then
-  rerun `build_distances.py`.
+- **Add or move a site:** add a row to `data/model/sites.csv` (`role` is
+  `source`, `sink`, or `intermediate` for a transfer hub), add its modes to
+  `data/model/modes.csv`, then rerun `build_distances.py`.
+- **Change a volume:** edit `base_dst_per_yr` in `data/model/sites.csv`. Bear
+  and bull follow from `SCENARIO_MULTIPLIERS` in `config.py`.
 - **Change a rate:** edit `MODE_PARAMS` in `config.py`, and cite a row in
-  `sources/rate_sources.csv`.
-- **Use a quoted rate for one lane:** add a row to `lane_rates.csv`. It
-  replaces the rate formula for that lane.
+  `data/reference/rate_sources.csv`.
+- **Use a quoted rate for one lane:** add a row to `data/model/lane_rates.csv`.
+  It replaces the rate formula for that lane.
+- **Move or rename a data file:** change its path in `config.py`. No other
+  file names a path.
 - **Leave a site out:** add its name to `EXCLUDED_NODES` in `config.py`.
 
 ## How the model works
@@ -119,7 +128,7 @@ One min-cost-flow MILP per scenario, solved with Gurobi (`model.py`):
   `config.SOLUTION_STRENGTH`. Quotes in `lane_rates.csv` are in $/metric ton.
 
 **Rates.** Every rate in `config.py` and every build cost in `modes.csv` cites
-a row in `sources/rate_sources.csv` (value, date, URL, page):
+a row in `data/reference/rate_sources.csv` (value, date, URL, page):
 
 - Truck: Quality Carriers liquid chemical tariff, plus fuel surcharge.
 - Rail: STB 2024 waybill fit for caustic tank cars, scaled to the ~$12,000/car
@@ -131,33 +140,41 @@ These are public list rates, so XOM's contract rates are probably lower.
 
 ## Repo map
 
-**Inputs**
+**Model inputs** (`data/model/`): the optimization reads these, so editing
+them changes the results.
 
 | File | Contents |
 | --- | --- |
-| `network.xlsx` | `Sources` and `Sinks` sheets: 10 suppliers and 10 EM sites in the US and Canada, with location and bear/base/bull volumes (DST/yr and DMT/yr). |
+| `sites.csv` | 10 suppliers and 10 EM sites in the US and Canada: role, location and base-scenario volume (DST/yr). `notes` records volumes XOM gave in metric tons or as sums. |
 | `modes.csv` | Modes each site has: `existing`, or `candidate` with an annualized build cost. Optional capacity and minimum share. Built from EM's caustic model data sheet. |
 | `lane_distances.csv` | Routed miles per lane, written by `build_distances.py`: truck on OpenStreetMap highways, rail on Class 1 lines, barge on the USACE National Waterway Network. |
 | `lane_rates.csv` | Quoted line-haul rates per lane. Empty for now. |
-| `rail_lanes.csv` | Existing and candidate rail lanes: serving railroads, likely route, interchanges. Used by the rate-check workbook. |
-| `site_rail_access.csv` | Railroads serving each site, with confidence and sources. Used by the rate-check workbook. |
-| `sources/rate_sources.csv` | Source of every rate and assumption. IDs start with X (XOM-stated), D (derived) or A (team assumption). |
+
+**Reference data** (`data/reference/`): research behind the numbers. The model
+does not read these; only the rate-check workbook does.
+
+| File | Contents |
+| --- | --- |
+| `network.xlsx` | The original site workbook (bear/base/bull volumes in DST and DMT, with formulas), kept to show where `sites.csv` came from. The model does not read it: edit `data/model/sites.csv` instead. |
+| `rate_sources.csv` | Source of every rate and assumption. IDs start with X (XOM-stated), D (derived) or A (team assumption). |
+| `rail_lanes.csv` | Existing and candidate rail lanes: serving railroads, likely route, interchanges. |
+| `site_rail_access.csv` | Railroads serving each site, with confidence and sources. |
 
 **Code**
 
 | File | Role |
 | --- | --- |
-| `config.py` | Every setting: file paths, scenarios, rates, solution strength, handling cost, excluded sites and lanes. |
-| `loader.py`, `node.py` | Read the workbook and `modes.csv` into `Node` and `SiteMode` objects. |
+| `config.py` | Every setting: all file paths, scenario multipliers, rates, solution strength, handling cost, excluded sites and lanes. |
+| `loader.py`, `node.py` | Read `sites.csv`, `modes.csv` and the lane tables into `Node`, `SiteMode` and lane objects. |
 | `network.py` | Builds the hub + mode node graph and its arcs. |
 | `routing.py` | Line-haul $/ton for each lane. |
 | `model.py` | The Gurobi MILP. |
 | `main.py` | Runs all scenarios, prints results and draws maps. |
 | `visualize.py` | Folium map rendering (HTML + PNG). |
 | `sensitivity.py`, `export_rate_check.py`, `build_distances.py` | See [Quickstart](#quickstart). |
-| `sources/cfs_circuity.py`, `sources/puws_caustic.py` | One-off scripts that derived the circuity factors and the rail rate fit from public datasets (download links are in each file). |
+| `scripts/cfs_circuity.py`, `scripts/puws_caustic.py` | One-off scripts that derived the circuity factors and the rail rate fit from public datasets (download links are in each file). |
 
-**Outputs** go to `output/`, which is gitignored.
+**Outputs** go to `output/`, which is gitignored. Downloaded data is cached in `.cache/`, also gitignored.
 
 ## Status and open gaps (as of 2026-11-05)
 
@@ -174,4 +191,4 @@ These are public list rates, so XOM's contract rates are probably lower.
   candidate builds (Joliet rail and barge, Sarnia rail) never pay off.
 - **No XOM rate quotes.** XOM can't share contract rates, so they are
   checking our estimates in the rate-check workbook instead, and
-  `lane_rates.csv` stays empty.
+  `data/model/lane_rates.csv` stays empty.

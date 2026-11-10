@@ -2,15 +2,16 @@
 
     python main.py
 
-Line-haul costs use quoted rates (lane_rates.csv) where available, else the
+Line-haul costs use quoted rates (config.LANE_RATES_FILE) where available, else the
 placeholder rate formula in config.MODE_PARAMS on routed miles
-(lane_distances.csv, from build_distances.py) or great-circle estimates.
+(config.LANE_DISTANCES_FILE, from build_distances.py) or great-circle estimates.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 
 import config
 from loader import VOLUME_UNIT, load_nodes, load_site_modes
@@ -29,7 +30,7 @@ def apply_exclusions(nodes: list[Node], site_modes: list[SiteMode]) -> tuple[lis
         return nodes, site_modes
     unknown = config.EXCLUDED_NODES - {n.name for n in nodes}
     if unknown:
-        raise ValueError(f"EXCLUDED_NODES names not found in workbook: {sorted(unknown)}")
+        raise ValueError(f"EXCLUDED_NODES names not found in {config.SITES_FILE.name}: {sorted(unknown)}")
     kept = [n for n in nodes if n.name not in config.EXCLUDED_NODES]
     for name in sorted(config.EXCLUDED_NODES):
         logger.warning("Excluding node: %s", name)
@@ -38,13 +39,13 @@ def apply_exclusions(nodes: list[Node], site_modes: list[SiteMode]) -> tuple[lis
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--workbook", default=config.WORKBOOK)
+    ap.add_argument("--sites", default=config.SITES_FILE)
     ap.add_argument("--modes", default=config.MODES_FILE)
     ap.add_argument("--out", default=str(config.OUTPUT_DIR))
     args = ap.parse_args()
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    nodes, site_modes = apply_exclusions(load_nodes(args.workbook), load_site_modes(args.modes))
+    nodes, site_modes = apply_exclusions(load_nodes(args.sites), load_site_modes(args.modes))
     net = build_network(nodes, site_modes)
     print(f"{len(net.sites)} sites, {len(net.modes)} site-modes "
           f"({len(net.candidates)} candidates to build), {len(net.arcs)} arcs")
@@ -53,7 +54,7 @@ def main() -> None:
     if bases.count(CostBasis.QUOTE) < len(bases):
         print("Unquoted lanes use PLACEHOLDER rates (config.MODE_PARAMS).")
 
-    out = config.OUTPUT_DIR.__class__(args.out)
+    out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
     for scenario in config.SCENARIOS:
@@ -78,7 +79,7 @@ def main() -> None:
         for ext in ("html", "png"):
             try:
                 plot_nodes(nodes, flows=sol.flows, title=title,
-                           save_path=out / f"network_map_{scenario}.{ext}")
+                           save_path=out / f"{config.NETWORK_MAP_NAME.format(scenario=scenario)}.{ext}")
             except RuntimeError as exc:   # kaleido/Chrome missing: keep the HTML map
                 logger.warning("Could not write .%s (%s). Run `plotly_get_chrome` for PNG export.",
                                ext, str(exc).strip().splitlines()[0] if str(exc).strip() else "kaleido error")

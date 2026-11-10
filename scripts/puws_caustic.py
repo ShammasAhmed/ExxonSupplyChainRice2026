@@ -3,7 +3,7 @@
 Data: STB 2024 Public Use Waybill Sample, https://www.stb.gov/wp-content/uploads/PublicUseWaybillSample2024.zip
 Field positions: 2024 STB Waybill Reference Guide, PUWS layout.
 
-    python sources/puws_caustic.py PublicUseWaybillSample2024.txt caustic
+    python scripts/puws_caustic.py PublicUseWaybillSample2024.txt caustic
 """
 import sys
 import numpy as np

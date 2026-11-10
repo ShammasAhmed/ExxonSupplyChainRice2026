@@ -17,12 +17,13 @@ from typing import Iterable
 
 import folium
 
+import config
 from node import Mode, Node, NodeCategory
 
-# CARTO basemaps now require a free key (https://carto.com/basemaps/apikey/).
-# Easiest: set an environment variable named CARTO_API_KEY.
-# Or paste the key between the quotes below (don't commit it to git).
-CARTO_API_KEY = "cb1_4ucd_1_afe46a94d28c9a77ce4e06cc"
+# CARTO basemaps need a free key (https://carto.com/basemaps/apikey/). Set it
+# in your shell, e.g. `export CARTO_API_KEY=...` in ~/.zshrc; never commit it.
+# Without a key the maps use plain OpenStreetMap tiles instead.
+CARTO_API_KEY = os.environ.get("CARTO_API_KEY", "").strip()
 
 # (hex color, opacity)
 _MODE_COLORS = {
@@ -108,13 +109,16 @@ def plot_nodes(
 
     m = folium.Map(location=[39.5, -98.35], zoom_start=4,
                    tiles=None, control_scale=True)
-    folium.TileLayer(
-        tiles=(f"https://basemaps.cartocdn.com/rastertiles/light_all/"
-               f"{{z}}/{{x}}/{{y}}.png?key={CARTO_API_KEY}"),
-        attr=('&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> '
-              'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'),
-        name="CARTO Positron",
-    ).add_to(m)
+    if CARTO_API_KEY:
+        folium.TileLayer(
+            tiles=(f"https://basemaps.cartocdn.com/rastertiles/light_all/"
+                   f"{{z}}/{{x}}/{{y}}.png?key={CARTO_API_KEY}"),
+            attr=('&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> '
+                  'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'),
+            name="CARTO Positron",
+        ).add_to(m)
+    else:
+        folium.TileLayer("OpenStreetMap", name="OpenStreetMap").add_to(m)
     legend_entries: list[tuple[str, str, str]] = []
 
     # ---- flows -----------------------------------------------------------
@@ -223,7 +227,8 @@ def plot_nodes(
         else:
             raise ValueError("save_path must end in .html or .png")
     if show:
-        tmp = Path("_network_map_preview.html").resolve()
+        tmp = config.MAP_PREVIEW_FILE
+        tmp.parent.mkdir(parents=True, exist_ok=True)
         m.save(str(tmp))
         webbrowser.open(tmp.as_uri())
     return m
@@ -232,7 +237,8 @@ def plot_nodes(
 if __name__ == "__main__":
     from loader import load_nodes
 
-    nodes = load_nodes("network.xlsx")
-    plot_nodes(nodes, save_path="network_map.html")  # interactive page
-    plot_nodes(nodes, save_path="network_map.png")   # static image (needs selenium)
+    nodes = load_nodes(config.SITES_FILE)
+    out = config.OUTPUT_DIR / config.SITES_MAP_NAME
+    plot_nodes(nodes, save_path=out.with_suffix(".html"))  # interactive page
+    plot_nodes(nodes, save_path=out.with_suffix(".png"))   # static image (needs selenium)
     plot_nodes(nodes, show=True)

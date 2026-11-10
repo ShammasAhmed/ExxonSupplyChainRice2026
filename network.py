@@ -115,7 +115,7 @@ def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode], *,
     for sm in site_modes:
         if sm.site not in sites:
             raise ValueError(f"Modes table names unknown site {sm.site!r} "
-                             f"(must match a Sources/Sinks name exactly).")
+                             f"(must match a name in sites.csv exactly).")
         if sm.min_demand_share and not sites[sm.site].is_sink:
             raise ValueError(f"{sm.site!r} {sm.mode.value}: min_demand_share only applies to sinks.")
         modes[(sm.site, sm.mode.value)] = sm
