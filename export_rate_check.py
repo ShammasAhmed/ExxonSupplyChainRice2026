@@ -1,6 +1,6 @@
 """Write an Excel workbook of the model's sourced freight costs for XOM to check.
 
-    python export_rate_check.py                       # output/XOM_rate_check.xlsx
+    python export_rate_check.py                       # config.OUTPUT_DIR / config.RATE_CHECK_NAME
     python export_rate_check.py --out some/file.xlsx
 
 Sheets:
@@ -10,13 +10,13 @@ Sheets:
                        see every lane update
     Current lanes      lanes the model uses today (base scenario)
     Rail lanes         existing and candidate rail lanes, with serving railroads,
-                       likely route and interchanges (RAIL_LANES_FILE)
+                       likely route and interchanges (config.RAIL_LANES_FILE)
     Chicago hub        Gulf Coast -> Chicago (IMTT Lemont) -> Canada vs. direct rail,
                        with low / base / high inputs, break-even barge cost and a
                        two-way sensitivity grid (barge rate x rail discount)
-    Site rail access   which railroad serves each site and terminal (SITE_RAIL_FILE)
+    Site rail access   which railroad serves each site and terminal (config.SITE_RAIL_FILE)
     Questions for XOM
-    Sources            every number's value, date, URL and page (RATE_SOURCES_FILE);
+    Sources            every number's value, date, URL and page (config.RATE_SOURCES_FILE);
                        other sheets cite its ids in brackets
 
 Each data block is an Excel table so Copilot in Excel can read it.
@@ -50,8 +50,6 @@ from model import solve_scenario
 from network import build_network
 from routing import lane_distance
 
-SITE_RAIL_FILE = "site_rail_access.csv"
-RAIL_LANES_FILE = "rail_lanes.csv"
 LOAD_MT = {"truck": 21.0, "rail": 84.0}   # wet metric tons per load (XOM: 1 rail car = 84 MT = 4 trucks)
 
 FONT = "Arial"
@@ -91,11 +89,11 @@ QUESTIONS = [
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--out", default=str(config.OUTPUT_DIR / "XOM_rate_check.xlsx"))
+    ap.add_argument("--out", default=str(config.OUTPUT_DIR / config.RATE_CHECK_NAME))
     args = ap.parse_args()
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    nodes, site_modes = apply_exclusions(load_nodes(config.WORKBOOK), load_site_modes(config.MODES_FILE))
+    nodes, site_modes = apply_exclusions(load_nodes(config.SITES_FILE), load_site_modes(config.MODES_FILE))
     sites = {n.name: n for n in nodes}
     sol = solve_scenario(build_network(nodes, site_modes), "base")
     if sol.status != "OPTIMAL":
@@ -106,10 +104,10 @@ def main() -> None:
     read_me(wb.create_sheet("Read me"))
     refs = assumptions(wb.create_sheet("Assumptions"))
     current_lanes(wb.create_sheet("Current lanes"), sol, sites, refs)
-    rail_df = pd.read_csv(RAIL_LANES_FILE)
+    rail_df = pd.read_csv(config.RAIL_LANES_FILE)
     rail_lanes(wb.create_sheet("Rail lanes"), rail_df, refs)
     chicago_hub(wb.create_sheet("Chicago hub"), rail_df, refs)
-    site_rail(wb.create_sheet("Site rail access"), pd.read_csv(SITE_RAIL_FILE).fillna(""))
+    site_rail(wb.create_sheet("Site rail access"), pd.read_csv(config.SITE_RAIL_FILE).fillna(""))
     questions(wb.create_sheet("Questions for XOM"))
     sources(wb.create_sheet("Sources"), pd.read_csv(config.RATE_SOURCES_FILE, dtype=str).fillna(""))
 
@@ -123,7 +121,7 @@ def main() -> None:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out)
-    print(f"Wrote {out} ({len(sol.flows)} current lanes, {len(pd.read_csv(RAIL_LANES_FILE))} rail lanes).")
+    print(f"Wrote {out} ({len(sol.flows)} current lanes, {len(rail_df)} rail lanes).")
 
 
 # --- sheets --------------------------------------------------------------
@@ -295,7 +293,7 @@ def chicago_hub(ws, rail_df: pd.DataFrame, refs) -> None:
     origins = [a for a, *_ in HUB_BARGE] + [HUB]
     missing = [(o, d) for o in origins for d in HUB_DESTS if (o, d) not in pairs]
     if missing:
-        raise SystemExit(f"{RAIL_LANES_FILE} is missing lanes needed on 'Chicago hub': {missing}")
+        raise SystemExit(f"{config.RAIL_LANES_FILE.name} is missing lanes needed on 'Chicago hub': {missing}")
 
     title(ws, "Chicago hub: Gulf Coast -> Chicago (IMTT Lemont) -> destination, vs. direct rail")
     note_row(ws, 2, "All $ per wet MT (50% solution as shipped); x2 for $/dry MT. Via Chicago minus direct: "

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 
 import pandas as pd
 
@@ -36,7 +37,7 @@ def main() -> None:
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     mode = Mode(args.mode)
-    nodes, site_modes = apply_exclusions(load_nodes(config.WORKBOOK), load_site_modes(config.MODES_FILE))
+    nodes, site_modes = apply_exclusions(load_nodes(config.SITES_FILE), load_site_modes(config.MODES_FILE))
 
     rows = []
     for k in args.multipliers:
@@ -56,14 +57,15 @@ def main() -> None:
 
     df = pd.DataFrame(rows)
     scope = f"{mode.value}{'_cross_border' if args.cross_border else ''}"
-    out = config.OUTPUT_DIR.__class__(args.out)
+    out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out / f"sensitivity_{scope}.csv", index=False)
+    path = out / config.SENSITIVITY_NAME.format(scope=scope)
+    df.to_csv(path, index=False)
 
     print(f"Sensitivity of {scope.replace('_', ' ')} line-haul rates:")
     with pd.option_context("display.width", 200, "display.max_columns", None, "display.float_format", "{:,.2f}".format):
         print(df.to_string(index=False))
-    print(f"\nWritten to {out / f'sensitivity_{scope}.csv'}")
+    print(f"\nWritten to {path}")
 
 
 if __name__ == "__main__":

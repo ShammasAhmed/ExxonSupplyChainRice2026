@@ -45,7 +45,6 @@ SCGRAPH_NETWORKS = {Mode.TRUCK: "world_highways", Mode.RAIL: "north_america_rail
 NWN_URL = ("https://services7.arcgis.com/n1YM8pTrFmm7L4hs/ArcGIS/rest/services/"
            "Waterway_Networks/FeatureServer")
 NWN_NODES_LAYER, NWN_LINKS_LAYER = 0, 1
-NWN_CACHE = Path(".cache/nwn.json")
 
 # Rivers whose current makes upstream tows slower and costlier. River miles
 # increase upstream on all of these, so a link run toward higher river miles
@@ -106,19 +105,19 @@ def _query_layer(layer: int, out_fields: str, geometry: bool) -> list[dict]:
 
 
 def fetch_nwn(refresh: bool = False) -> dict[str, list[dict]]:
-    """National Waterway Network nodes (points) and links (attributes only), cached in NWN_CACHE.
+    """National Waterway Network nodes (points) and links (attributes only), cached in config.NWN_CACHE_FILE.
 
     Link geometries are not used: they are not consistently digitized from
     ANODE to BNODE, so node locations come from the nodes layer instead.
     """
-    if NWN_CACHE.exists() and not refresh:
-        return json.loads(NWN_CACHE.read_text())
+    if config.NWN_CACHE_FILE.exists() and not refresh:
+        return json.loads(config.NWN_CACHE_FILE.read_text())
     nwn = {"nodes": _query_layer(NWN_NODES_LAYER, "NODENUM", geometry=True),
            "links": _query_layer(NWN_LINKS_LAYER, "ANODE,BNODE,LENGTH,RIVERNAME,AMILE,BMILE", geometry=False)}
-    NWN_CACHE.parent.mkdir(parents=True, exist_ok=True)
-    NWN_CACHE.write_text(json.dumps(nwn))
+    config.NWN_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    config.NWN_CACHE_FILE.write_text(json.dumps(nwn))
     logger.info("Downloaded %d waterway nodes and %d links to %s",
-                len(nwn["nodes"]), len(nwn["links"]), NWN_CACHE)
+                len(nwn["nodes"]), len(nwn["links"]), config.NWN_CACHE_FILE)
     return nwn
 
 
@@ -192,7 +191,7 @@ def main() -> None:
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-    sites = {n.name: n for n in load_nodes(config.WORKBOOK)}
+    sites = {n.name: n for n in load_nodes(config.SITES_FILE)}
     modes = [(sm.site, sm.mode.value) for sm in load_site_modes(config.MODES_FILE) if sm.site in sites]
     lanes = list(transport_lanes(sites, modes))
     rebuild = {Mode(m) for m in args.modes}
