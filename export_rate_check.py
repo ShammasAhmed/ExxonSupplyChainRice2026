@@ -396,7 +396,6 @@ def chicago_hub(ws, rail_df: pd.DataFrame, refs) -> None:
     diff_colors(ws, f"B{head + 1}:{get_column_letter(1 + len(GRID_RAIL))}{head + len(GRID_BARGE)}")
 
     widths(ws, [36, 30, 13, 14, 14, 12, 12, 13, 12, 12, 13, 13, 13, 16, 44])
-    ws.freeze_panes = None
 
 
 def lane_table(ws, heading: str, lanes: list[tuple], refs, table: str, top: int = 1) -> int:
@@ -423,7 +422,8 @@ def lane_table(ws, heading: str, lanes: list[tuple], refs, table: str, top: int 
     estimate_dropdown(ws, f"M{top + 3}:M{r}")
     as_table(ws, f"A{top + 2}:M{r}", table)
     widths(ws, [34, 30, 8, 10, 10, 10, 14, 12, 12, 12, 12, 12, 16])
-    ws.freeze_panes = "C4"
+    if top == 1:   # only freeze when the table starts the sheet
+        ws.freeze_panes = "C4"
     return r
 
 
