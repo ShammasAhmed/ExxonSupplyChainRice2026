@@ -22,6 +22,7 @@ class Mode(str, Enum):
     RAIL = "rail"
     BARGE = "barge"
     PIPELINE = "pipeline"
+    OCEAN = "ocean"
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +95,8 @@ class Node:
     base: float
     bull: float
     price: float = 0.0          # sources: product price, $ per DST, ex freight
+    terminal_fee: float = 0.0   # intermediates: throughput fee, $ per DST passing through
+    supply_cap: float | None = None   # sources: max DST/yr in every scenario (None = uncapped)
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():
@@ -124,10 +127,16 @@ class Node:
             if v < 0:
                 raise ValueError(f"Node {self.name!r}: {s.value} value {v} is negative.")
             object.__setattr__(self, s.value, v)
-        price = float(self.price)
-        if price < 0:
-            raise ValueError(f"Node {self.name!r}: price {price} is negative.")
-        object.__setattr__(self, "price", price)
+        if self.supply_cap is not None:
+            cap = float(self.supply_cap)
+            if cap < 0:
+                raise ValueError(f"Node {self.name!r}: supply_cap {cap} is negative.")
+            object.__setattr__(self, "supply_cap", cap)
+        for attr in ("price", "terminal_fee"):
+            v = float(getattr(self, attr))
+            if v < 0:
+                raise ValueError(f"Node {self.name!r}: {attr} {v} is negative.")
+            object.__setattr__(self, attr, v)
 
     # --- Geography -------------------------------------------------------
     @property

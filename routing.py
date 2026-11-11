@@ -2,7 +2,8 @@
 
 `lane_cost(a, b, mode)` returns the line haul for one directed lane as a
 LaneCost ($/ton, miles, and where the cost came from), or None when the mode
-does not offer that lane (e.g. pipeline beyond its max length). Loading and
+does not offer that lane (e.g. pipeline beyond its max length, or an ocean
+lane with no quote: ocean has no rate formula). Loading and
 unloading are charged separately on the network's transfer arcs.
 
 Cost basis, best first:
@@ -21,7 +22,7 @@ from enum import Enum
 from functools import cache
 
 import config
-from loader import load_lane_distances, load_lane_rates
+from loader import load_lane_distances, load_lane_rates, wet_mt_to_dst
 from node import LaneDistance, LaneKey, LaneRate, Mode, Node
 
 EARTH_RADIUS_MILES = 3958.8
@@ -74,8 +75,9 @@ def lane_distance(a: Node, b: Node, mode: Mode) -> LaneDistance:
 
 def quote_usd_per_ton(rate: LaneRate) -> float:
     """Convert a quote in $/metric ton (dry or wet basis) to $ per model ton (dry short ton)."""
-    usd_per_dry_mt = rate.usd_per_mt / config.SOLUTION_STRENGTH if rate.weight_basis == "wet" else rate.usd_per_mt
-    return usd_per_dry_mt * config.METRIC_TONS_PER_SHORT_TON
+    if rate.weight_basis == "wet":
+        return wet_mt_to_dst(rate.usd_per_mt)
+    return rate.usd_per_mt * config.METRIC_TONS_PER_SHORT_TON
 
 
 def lane_cost(a: Node, b: Node, mode: Mode, multiplier: float = 1.0) -> LaneCost | None:
@@ -90,6 +92,8 @@ def lane_cost(a: Node, b: Node, mode: Mode, multiplier: float = 1.0) -> LaneCost
         return LaneCost(quote_usd_per_ton(quote) * multiplier, dist.miles, CostBasis.QUOTE)
 
     p = config.MODE_PARAMS[mode.value]
+    if p["fixed_usd_per_ton"] is None:   # quote-only mode (ocean): no rate formula
+        return None
     if p["max_miles"] is not None and dist.miles > p["max_miles"]:
         return None
     billed = max(dist.miles + (p["upstream_factor"] - 1) * dist.upstream_miles, p["min_miles"])

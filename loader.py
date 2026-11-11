@@ -19,18 +19,29 @@ VOLUME_UNIT = "DST/yr"
 _US_ALIASES = {"US", "USA", "U.S.", "U.S.A.", "UNITED STATES", "UNITED STATES OF AMERICA"}
 
 _SITE_COLUMNS = ("name", "role", "city", "state", "country", "longitude", "latitude", "base_dst_per_yr",
-                 "price_usd_per_dst")
+                 "price_usd_per_dst", "terminal_fee_usd_per_wet_mt", "supplier_type")
+
+
+def wet_mt_to_dst(usd_per_wet_mt: float) -> float:
+    """$ per metric ton of solution as shipped -> $ per dry short ton (the model unit)."""
+    return usd_per_wet_mt / config.SOLUTION_STRENGTH * config.METRIC_TONS_PER_SHORT_TON
 
 
 def load_nodes(path: str | Path) -> list[Node]:
     """Read the sites table and return a list of Nodes.
 
     Columns: name, role (source/sink/intermediate), city, state, country,
-    longitude, latitude, base_dst_per_yr, price_usd_per_dst, notes. Each
-    scenario's volume is base_dst_per_yr x config.SCENARIO_MULTIPLIERS; it may
-    be blank only for intermediates. price_usd_per_dst (product price ex
-    freight) is required for sources and must be blank elsewhere. Raises
-    ValueError for missing columns, duplicate names, or bad values.
+    longitude, latitude, base_dst_per_yr, price_usd_per_dst,
+    terminal_fee_usd_per_wet_mt, supplier_type, notes. For sinks, each
+    scenario's demand is base_dst_per_yr x config.SCENARIO_MULTIPLIERS. For
+    sources, base_dst_per_yr is today's volume to XOM, and the supply cap is
+    that x config.SUPPLY_CAP_MULTIPLIER[supplier_type] in every scenario
+    (supplier_type is required for sources and must be blank elsewhere).
+    base_dst_per_yr may be blank only for intermediates. price_usd_per_dst (product price ex freight) is required
+    for sources and must be blank elsewhere. terminal_fee_usd_per_wet_mt is
+    charged on every ton passing through an intermediate (blank = 0) and must
+    be blank elsewhere. Raises ValueError for missing columns, duplicate
+    names, or bad values.
     """
     path = Path(path)
     df = pd.read_csv(path, skipinitialspace=True).dropna(how="all")
@@ -57,6 +68,17 @@ def load_nodes(path: str | Path) -> list[Node]:
         if (price is None) == (category is NodeCategory.SOURCE):
             raise ValueError(f"{where} ({name!r}): price_usd_per_dst is required for sources "
                              f"and must be blank for {category.value}s.")
+        fee = _opt_float(row["terminal_fee_usd_per_wet_mt"], None)
+        if fee is not None and category is not NodeCategory.INTERMEDIATE:
+            raise ValueError(f"{where} ({name!r}): terminal_fee_usd_per_wet_mt only applies to intermediates.")
+        supplier_type = "" if pd.isna(row["supplier_type"]) else str(row["supplier_type"]).strip().lower()
+        if bool(supplier_type) != (category is NodeCategory.SOURCE):
+            raise ValueError(f"{where} ({name!r}): supplier_type is required for sources "
+                             f"and must be blank for {category.value}s.")
+        if supplier_type and supplier_type not in config.SUPPLY_CAP_MULTIPLIER:
+            raise ValueError(f"{where} ({name!r}): supplier_type must be one of "
+                             f"{list(config.SUPPLY_CAP_MULTIPLIER)}, got {supplier_type!r}.")
+        cap_k = config.SUPPLY_CAP_MULTIPLIER.get(supplier_type)
         country = str(row["country"]).strip()
         lat, lon = _coords(row["latitude"], row["longitude"], country, name, where)
         try:
@@ -69,6 +91,8 @@ def load_nodes(path: str | Path) -> list[Node]:
                 coords=(lat, lon),
                 **{s: base * k for s, k in config.SCENARIO_MULTIPLIERS.items()},
                 price=price or 0.0,
+                terminal_fee=wet_mt_to_dst(fee or 0.0),
+                supply_cap=base * cap_k if cap_k is not None else None,
             ))
         except (ValueError, TypeError) as exc:
             raise ValueError(f"{where} ({name!r}): {exc}") from exc

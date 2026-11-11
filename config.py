@@ -51,6 +51,26 @@ NWN_CACHE_FILE = CACHE_DIR / "nwn.json"
 SCENARIO_MULTIPLIERS = {"bear": 0.8, "base": 1.0, "bull": 1.2}
 SCENARIOS = tuple(SCENARIO_MULTIPLIERS)
 
+# --- Supply --------------------------------------------------------------
+# A source's base_dst_per_yr is what it ships to XOM today. Its supply cap is
+# that volume x the multiplier for its supplier_type in SITES_FILE (None =
+# uncapped). Caps are capacities, so they do not change with the demand
+# scenario.
+#   producer     chlor-alkali plants make 0.3-3 Mt/yr, far above XOM's total
+#                demand (~0.24 Mt/yr in bull), so any cap above that behaves
+#                like no cap. Set a number (e.g. 2.0) to limit how much one
+#                producer can win.
+#   export       export markets (China): uncapped.
+#   terminal,    tank space limits them: 25% above today's volume (team
+#   distributor  assumption A4; IMTT's 2018 utilization of 84.6% would imply
+#                1 / 0.846 = 1.18, rate_sources G3).
+SUPPLY_CAP_MULTIPLIER: dict[str, float | None] = {
+    "producer": None,
+    "export": None,
+    "terminal": 1.25,
+    "distributor": 1.25,
+}
+
 # --- Transport costs -----------------------------------------------------
 # The model's volume unit is the dry short ton (DST, see loader.VOLUME_UNIT),
 # but freight is billed on the weight actually loaded. So the rates below and
@@ -92,6 +112,10 @@ SCENARIOS = tuple(SCENARIO_MULTIPLIERS)
 #             No site uses pipeline in MODES_FILE.
 #   circuity  2017 Commodity Flow Survey, basic chemicals (G1); pipeline 1.0
 #             is an assumption.
+#   ocean     quote-only: no rate formula (None), so an ocean lane exists only
+#             if LANE_RATES_FILE quotes it. Miles come from scgraph's marnet
+#             sea-lane graph; circuity is only the fallback for unrouted lanes
+#             (team assumption, A2).
 MODE_PARAMS = {
     "truck":    dict(circuity=1.19, fixed_usd_per_ton=36.78, usd_per_ton_mile=0.3878, upstream_factor=1.0,
                      min_miles=34, max_miles=None),
@@ -101,6 +125,8 @@ MODE_PARAMS = {
                      min_miles=30, max_miles=None),   # min_miles: XOM, flat within ~20-30 mi (X6)
     "pipeline": dict(circuity=1.00, fixed_usd_per_ton=0.0, usd_per_ton_mile=0.2005, upstream_factor=1.0,
                      min_miles=0,  max_miles=25),
+    "ocean":    dict(circuity=1.15, fixed_usd_per_ton=None, usd_per_ton_mile=None, upstream_factor=1.0,
+                     min_miles=0,  max_miles=None),
 }
 
 # --- Quoted rates (LANE_RATES_FILE) --------------------------------------
@@ -114,8 +140,9 @@ METRIC_TONS_PER_SHORT_TON = 0.90718474
 # each end of a lane, and twice when product changes mode at a terminal).
 # Truck and rail carriers charge nothing within free time and their rates
 # exclude loading (D4, D7). Barge: Kirby dock shift + fleeting in/out per
-# barge (D11).
-HANDLING_USD_PER_TON = {"truck": 0.0, "rail": 0.0, "barge": 1.433, "pipeline": 0.0}
+# barge (D11). Ocean: loading is in the FOB price and discharge is in the
+# import terminal's fee in SITES_FILE (D20).
+HANDLING_USD_PER_TON = {"truck": 0.0, "rail": 0.0, "barge": 1.433, "pipeline": 0.0, "ocean": 0.0}
 
 # --- Modular exclusions --------------------------------------------------
 # Any node whose name is listed here is dropped before edges/model/maps are

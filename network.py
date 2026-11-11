@@ -9,7 +9,8 @@ Arcs:
     TRANSPORT  (a, mode)    -> (b, mode)      line haul, only if both sites have `mode`
 
 Sources only load, sinks only unload, and intermediates (terminals) do both,
-so product changes mode only at an intermediate site, paying unload + load.
+so product changes mode only at an intermediate site, paying unload + load
+plus the site's terminal fee (charged on the unload arc).
 """
 
 from __future__ import annotations
@@ -131,7 +132,8 @@ def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode], *,
         if n.is_source or n.is_intermediate:
             arcs.append(Arc((site, HUB), (site, mode), ArcKind.LOAD, sm.mode, handling))
         if n.is_sink or n.is_intermediate:
-            arcs.append(Arc((site, mode), (site, HUB), ArcKind.UNLOAD, sm.mode, handling))
+            # Every ton through a terminal unloads exactly once, so its throughput fee goes here.
+            arcs.append(Arc((site, mode), (site, HUB), ArcKind.UNLOAD, sm.mode, handling + n.terminal_fee))
 
     for a, b, mode in transport_lanes(sites, modes):
         multiplier = rate_multiplier(sites[a], sites[b], mode) if rate_multiplier else 1.0

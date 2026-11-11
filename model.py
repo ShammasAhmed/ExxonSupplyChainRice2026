@@ -1,7 +1,7 @@
 """Multimodal min-cost flow with optional mode build decisions, for one scenario.
 
     min   sum_s price[s] * shipped[s]  +  sum_a cost[a] * x[a]  +  sum_c build_cost[c] * z[c]
-    s.t.  source hub:        out - in  <= supply
+    s.t.  source hub:        out - in  <= supply cap      (none if uncapped)
           sink hub:          in  - out == demand
           intermediate hub:  in  - out == 0
           mode node:         in  - out == 0
@@ -17,13 +17,18 @@ terminal can usefully carry more than everything).
 
 from __future__ import annotations
 
+import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
+from graphlib import CycleError, TopologicalSorter
 
 import gurobipy as gp
 from gurobipy import GRB
 
 from network import HUB, ArcKind, Network
 from node import Mode
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -35,6 +40,7 @@ class Solution:
     built: list[tuple[str, Mode]] = field(default_factory=list)
     cost_breakdown: dict[str, float] = field(default_factory=dict)
     total_flow: float = 0.0                         # tons/yr delivered to sinks
+    landed: dict[str, tuple[float, float]] = field(default_factory=dict)  # sink -> ($/ton product, $/ton logistics)
 
     @property
     def avg_cost(self) -> float | None:
@@ -66,7 +72,8 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
     for s, n in sites.items():
         hub = (s, HUB)
         if n.is_source:
-            m.addConstr(outflow(hub) - inflow(hub) <= n.value(scenario), name=f"supply[{s}]")
+            if n.supply_cap is not None:   # capacity: the same in every scenario
+                m.addConstr(outflow(hub) - inflow(hub) <= n.supply_cap, name=f"supply[{s}]")
         elif n.is_sink:
             m.addConstr(inflow(hub) - outflow(hub) == demand[s], name=f"demand[{s}]")
         else:
@@ -93,7 +100,7 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
         return Solution(scenario, names.get(m.Status, f"STATUS_{m.Status}"), None, {})
 
     used = {i: x[i].X for i in x if x[i].X > 1e-6}
-    flows, breakdown = {}, {"product": product.getValue(), "line haul": 0.0, "handling": 0.0,
+    flows, breakdown = {}, {"product": product.getValue(), "line haul": 0.0, "handling + terminal": 0.0,
                             "build": builds.getValue()}
     for i, v in used.items():
         a = net.arcs[i]
@@ -101,6 +108,39 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
             flows[(a.tail[0], a.head[0], a.mode)] = v
             breakdown["line haul"] += a.cost * v
         else:
-            breakdown["handling"] += a.cost * v
+            breakdown["handling + terminal"] += a.cost * v
     built = [(s, Mode(mode)) for (s, mode) in z if z[s, mode].X > 0.5]
-    return Solution(scenario, "OPTIMAL", m.ObjVal, flows, built, breakdown, sum(demand.values()))
+    return Solution(scenario, "OPTIMAL", m.ObjVal, flows, built, breakdown, sum(demand.values()),
+                    _landed_costs(net, used))
+
+
+def _landed_costs(net: Network, used: dict[int, float]) -> dict[str, tuple[float, float]]:
+    """Average $/ton of product and of logistics (line haul, handling, terminal
+    fees) in what each sink receives, following the solved flows.
+
+    Each node's average is the flow-weighted average over its inbound arcs of
+    (upstream average + arc cost); a source hub starts at its price. Build
+    costs are not allocated to sinks. Returns {} if the flow has a cycle
+    (it cannot at an optimum, since every cycle has positive cost).
+    """
+    into: dict = defaultdict(list)
+    preds: dict = defaultdict(set)
+    for i, v in used.items():
+        a = net.arcs[i]
+        into[a.head].append((a, v))
+        preds[a.head].add(a.tail)
+        preds.setdefault(a.tail, set())   # sources have no predecessors but must be ordered
+    try:
+        order = list(TopologicalSorter(preds).static_order())
+    except CycleError:
+        logger.warning("Flow has a cycle; landed costs per sink are not reported.")
+        return {}
+    avg: dict = {}
+    for key in order:
+        if not into[key]:   # a source hub (sources only load)
+            avg[key] = (net.sites[key[0]].price, 0.0)
+            continue
+        total = sum(v for _, v in into[key])
+        avg[key] = (sum(v * avg[a.tail][0] for a, v in into[key]) / total,
+                    sum(v * (avg[a.tail][1] + a.cost) for a, v in into[key]) / total)
+    return {s: avg[(s, HUB)] for s, n in net.sites.items() if n.is_sink and (s, HUB) in avg}

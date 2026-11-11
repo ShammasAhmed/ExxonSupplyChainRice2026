@@ -271,6 +271,7 @@ MODE_SOURCES = {
     "rail": "[D5-D7, G1] STB 2024 waybill fit for caustic tank cars, scaled to XOM's $12,000/car supplier rate",
     "barge": "[D8-D11, G1, X6] Kirby Aug 2026 LMR towing tariff per 1,420-ton barge; XOM: flat within ~20-30 mi",
     "pipeline": "[D13] INGAA 4-inch line cost at the Baytown volume; not used by any site",
+    "ocean": "[D19] Quote only: no rate formula; China -> Vancouver bulk parcel rate in lane_rates.csv",
 }
 
 
