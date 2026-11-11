@@ -8,11 +8,23 @@ Covestro Baytown Industrial Complex,truck,existing,,,,Ships to Baytown by truck
 Covestro Baytown Industrial Complex,rail,existing,,,,Ships to Beaumont by railcar
 "K.A. Steel Chemicals Inc, Olin Chlor Alkali",truck,existing,,,,Ships to Joliet by truck (sponsor lists supplier as WLK)
 "K.A. Steel Chemicals Inc, Olin Chlor Alkali",barge,existing,,,,INFERRED: terminal is resupplied from Plaquemine/Baytown; confirm mode with EM
+"K.A. Steel Chemicals Inc, Olin Chlor Alkali",rail,existing,,,,"Olin lists Lemont distribution capabilities as Barge, Railcar, Truck (olinchloralkali.com/about-us/locations); serving railroad unconfirmed"
 Brenntag Edmonton,truck,existing,,,,Ships to Strathcona by truck
 Quadra Toronto,truck,existing,,,,Ships to Nanticoke by truck
 Brenntag Toronto,truck,existing,,,,Ships to Sarnia by truck
 Quadra Edmonton,truck,existing,,,,Ships to Cold Lake by truck
 Univar Edmonton,truck,existing,,,,Ships to Kearl by truck
+China export (Qingdao),ocean,existing,,,,Bulk chemical tanker parcels from Shandong ports
+IMTT Lemont,barge,existing,,,,"3 barge berths, Illinois Waterway mi 303 (site_rail_access)"
+IMTT Lemont,rail,existing,,,,"Directly CN-served, on-site spurs (site_rail_access)"
+IMTT Lemont,truck,existing,,,,Truck rack assumed (for-hire chemical terminal); confirm
+Univar North Vancouver,ocean,existing,,,,Receives caustic by vessel (O6)
+Univar North Vancouver,rail,existing,,,,CN; 120 m storage track (O6)
+Univar North Vancouver,truck,existing,,,,Ships by truck (O6)
+CN Lynton (Fort McMurray),rail,existing,,,,CN railhead (site_rail_access)
+CN Lynton (Fort McMurray),truck,existing,,,,Truck ~75-90 km to Kearl (estimate)
+CN Vermilion,rail,existing,,,,"CN; candidate railhead for Cold Lake, unconfirmed"
+CN Vermilion,truck,existing,,,,Truck ~100 km to Cold Lake
 Joliet Refinery,truck,existing,,,,
 Joliet Refinery,rail,candidate,407409,,,"Sponsor alternate mode. Build cost $4.0M liquid rail spur (rate_sources G10), annualized 8%/20 yr (A1, team assumption)"
 Joliet Refinery,barge,candidate,1925007,,,"Sponsor alternate mode. Build cost $18.9M barge berth (rate_sources G11), annualized 8%/20 yr (A1, team assumption)"
@@ -25,6 +37,7 @@ Beaumont Complex,barge,existing,,,,
 Beaumont Complex,rail,existing,,,0.2061,7125 of 34565 DST: moving off rail (to barge) requires piping to the synthetics plant
 Gulf Coast Growth Ventures (GCGV),rail,existing,,,,
 Strathcona Refinery,truck,existing,,,,
+Strathcona Refinery,rail,existing,,,,"Physical rail access: Cando Southlands yard switches CN and CPKC cars into the refinery (site_rail_access, High). XOM has not said caustic arrives by rail; confirm"
 Nanticoke Refinery,truck,existing,,,,
 Sarnia Refinery,truck,existing,,,,
 Sarnia Refinery,rail,candidate,407409,,,"Sponsor alternate mode; 2028 expansion to 20k+ DMT. Build cost $4.0M liquid rail spur (rate_sources G10), annualized 8%/20 yr (A1, team assumption)"
