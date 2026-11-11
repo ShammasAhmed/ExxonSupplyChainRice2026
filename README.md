@@ -75,11 +75,11 @@ Chrome). Part of the output:
 ```text
 25 sites, 44 site-modes (3 candidates to build), 298 arcs
 
-[base] OPTIMAL  delivered=197,592 DST/yr  total=$106,771,035/yr ($540.36/ton)  lanes used=18
-   product=$76,920,905  line haul=$27,038,689  handling + terminal=$2,404,032  build=$407,409
+[base] OPTIMAL  delivered=197,592 DST/yr  total=$103,545,796/yr ($524.04/ton)  lanes used=15
+   product=$80,959,927  line haul=$21,185,359  handling + terminal=$993,101  build=$407,409
    BUILD rail at Joliet Refinery ($407,409/yr)
        44,439  Olin Plaquemine Plant  ->  Baton Rouge Complex  [barge]   ($5.95/ton, 33 mi, routed)
-       44,092  China export (Qingdao)  ->  Univar North Vancouver  [ocean]   ($263.08/ton, 5,942 mi, quote)
+       43,455  Covestro Baytown Industrial Complex  ->  Baytown Complex  [barge]   ($5.47/ton, 16 mi, routed)
        ...
 ```
 
@@ -96,8 +96,14 @@ Common changes:
 - **Add or move a site:** add a row to `data/model/sites.csv` (`role` is
   `source`, `sink`, or `intermediate` for a transfer hub), add its modes to
   `data/model/modes.csv`, then rerun `build_distances.py`.
-- **Change a volume:** edit `base_dst_per_yr` in `data/model/sites.csv`. Bear
-  and bull follow from `SCENARIO_MULTIPLIERS` in `config.py`.
+- **Change a volume:** edit `base_dst_per_yr` in `data/model/sites.csv`. For
+  sinks it is base-scenario demand; bear and bull follow from
+  `SCENARIO_MULTIPLIERS` in `config.py`. For sources it is today's volume to
+  XOM, which sets the supply cap (below).
+- **Change a supply cap:** each source has a `supplier_type` (producer,
+  terminal, distributor or export) in `sites.csv`, and
+  `SUPPLY_CAP_MULTIPLIER` in `config.py` sets its cap as a multiple of
+  today's volume (`None` = uncapped). Caps don't change with the scenario.
 - **Change a product price or terminal fee:** edit `price_usd_per_dst`
   (required for sources) or `terminal_fee_usd_per_wet_mt` (intermediates
   only) in `data/model/sites.csv`.
@@ -123,7 +129,8 @@ One min-cost-flow MILP per scenario, solved with Gurobi (`model.py`):
 - **Intermediates** (IMTT Lemont in Chicago, Univar North Vancouver, CN
   railheads for Kearl and Cold Lake) let product change mode. Each ton through
   one pays unload + load handling plus the site's terminal fee.
-- **Constraints:** sources ship at most their supply; sinks get exactly their
+- **Constraints:** sources ship at most their supply cap (producers and
+  China are uncapped; terminals and distributors get 1.25x today's volume); sinks get exactly their
   demand; optional per-mode capacity and minimum demand share from
   `modes.csv`; a candidate mode carries flow only if the model builds it
   (binary).
@@ -191,11 +198,13 @@ does not read these; only the rate-check workbook does.
 
 ## Status and open gaps (as of 2026-11-10)
 
-- **Supply is today's volume.** A source's supply is the volume it ships to
-  XOM today (`base_dst_per_yr`), scaled by the scenario multiplier. US and
-  Canadian supply therefore equals demand, and only the China node (a
-  placeholder cap equal to Alberta demand) adds slack. Which source wins in
-  Alberta depends on this setting.
+- **Supply caps.** Producers and China are uncapped, and terminals and
+  distributors can grow 25% over today's volume (a team assumption, A4).
+  With no cap, the cheapest producer wins wherever freight allows, so the
+  model moves most volume to Covestro.
+- **One price per source.** Covestro's price is a volume-weighted $401/DST,
+  but XOM pays it $450 on truck and rail lanes, so the model overstates how
+  cheaply Covestro can serve new lanes (e.g. GCGV and Alberta).
 - **One China node.** It stands for coastal Shandong exporters at one FOB
   price. China -> US is not modeled (37.5% Section 301 duties).
 - **Unconfirmed plumbing.** Strathcona rail receipt, CN Vermilion as the Cold

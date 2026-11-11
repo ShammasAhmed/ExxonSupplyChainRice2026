@@ -70,6 +70,7 @@ G15,Border,"UN1824 sodium hydroxide solution: Canadian TDG Class 8 PG II, no ERA
 A1,Assumption,Annualization of capital: 8% over 20 years (capital recovery factor 0.1019),0.1019,per year,,"TEAM ASSUMPTION, no source. Replace with XOM's hurdle rate if they share it.",,,Unsourced,"modes.csv build costs, D13"
 A2,Assumption,"Ocean circuity (sea miles / great circle), fallback only",1.15,ratio,,TEAM ASSUMPTION; ocean miles normally come from scgraph marnet,,,Unsourced,config ocean circuity
 A3,Assumption,"Vancouver terminal throughput, storage and railcar loading",8-20,USD per wet MT,,TEAM ASSUMPTION: no published fee for Univar or Vancouver Wharves,,,Unsourced,D20
+A4,Assumption,Supply cap for terminals and distributors (multiple of today's volume to XOM),1.25,ratio,,"TEAM ASSUMPTION, no source. G3 (IMTT 2018 utilization 84.6%) would imply 1.18",,,Unsourced,config.SUPPLY_CAP_MULTIPLIER
 D1,Derived,"Truck linehaul, fixed part (with fuel surcharge)",36.78,USD per wet short ton,2026-10-26,Calc: 516 x (1 + 0.65) / 23.15 short tons per truck,,516 = intercept of straight-line fit to T1 bands 41-300 mi (max error $3.60); 0.65 = T2 at T3; 23.15 = X2 in short tons,High,config truck fixed_usd_per_ton
 D2,Derived,"Truck linehaul, per mile (with fuel surcharge)",0.3878,USD per wet short ton-mile,2026-10-26,Calc: 5.44 x (1 + 0.65) / 23.15,,5.44 = slope of the T1 fit,High,config truck usd_per_ton_mile
 D3,Derived,Truck minimum billed miles,34,miles,2022-06-01,Calc: (700 - 516) / 5.44,,Reproduces the T1 $700 flat charge for 0-40 mi,High,config truck min_miles
