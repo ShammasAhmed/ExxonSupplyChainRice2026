@@ -18,17 +18,19 @@ VOLUME_UNIT = "DST/yr"
 
 _US_ALIASES = {"US", "USA", "U.S.", "U.S.A.", "UNITED STATES", "UNITED STATES OF AMERICA"}
 
-_SITE_COLUMNS = ("name", "role", "city", "state", "country", "longitude", "latitude", "base_dst_per_yr")
+_SITE_COLUMNS = ("name", "role", "city", "state", "country", "longitude", "latitude", "base_dst_per_yr",
+                 "price_usd_per_dst")
 
 
 def load_nodes(path: str | Path) -> list[Node]:
     """Read the sites table and return a list of Nodes.
 
     Columns: name, role (source/sink/intermediate), city, state, country,
-    longitude, latitude, base_dst_per_yr, notes. Each scenario's volume is
-    base_dst_per_yr x config.SCENARIO_MULTIPLIERS; it may be blank only for
-    intermediates. Raises ValueError for missing columns, duplicate names, or
-    bad values.
+    longitude, latitude, base_dst_per_yr, price_usd_per_dst, notes. Each
+    scenario's volume is base_dst_per_yr x config.SCENARIO_MULTIPLIERS; it may
+    be blank only for intermediates. price_usd_per_dst (product price ex
+    freight) is required for sources and must be blank elsewhere. Raises
+    ValueError for missing columns, duplicate names, or bad values.
     """
     path = Path(path)
     df = pd.read_csv(path, skipinitialspace=True).dropna(how="all")
@@ -51,6 +53,10 @@ def load_nodes(path: str | Path) -> list[Node]:
             if category is not NodeCategory.INTERMEDIATE:
                 raise ValueError(f"{where} ({name!r}): base_dst_per_yr is blank.")
             base = 0.0
+        price = _opt_float(row["price_usd_per_dst"], None)
+        if (price is None) == (category is NodeCategory.SOURCE):
+            raise ValueError(f"{where} ({name!r}): price_usd_per_dst is required for sources "
+                             f"and must be blank for {category.value}s.")
         country = str(row["country"]).strip()
         lat, lon = _coords(row["latitude"], row["longitude"], country, name, where)
         try:
@@ -62,6 +68,7 @@ def load_nodes(path: str | Path) -> list[Node]:
                 category=category,
                 coords=(lat, lon),
                 **{s: base * k for s, k in config.SCENARIO_MULTIPLIERS.items()},
+                price=price or 0.0,
             ))
         except (ValueError, TypeError) as exc:
             raise ValueError(f"{where} ({name!r}): {exc}") from exc

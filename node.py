@@ -93,6 +93,7 @@ class Node:
     bear: float
     base: float
     bull: float
+    price: float = 0.0          # sources: product price, $ per DST, ex freight
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():
@@ -123,6 +124,10 @@ class Node:
             if v < 0:
                 raise ValueError(f"Node {self.name!r}: {s.value} value {v} is negative.")
             object.__setattr__(self, s.value, v)
+        price = float(self.price)
+        if price < 0:
+            raise ValueError(f"Node {self.name!r}: price {price} is negative.")
+        object.__setattr__(self, "price", price)
 
     # --- Geography -------------------------------------------------------
     @property

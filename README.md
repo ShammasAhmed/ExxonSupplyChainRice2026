@@ -75,8 +75,8 @@ Chrome). Part of the output:
 ```text
 20 sites, 31 site-modes (3 candidates to build), 132 arcs
 
-[base] OPTIMAL  delivered=197,592 DST/yr  total=$16,300,276/yr ($82.49/ton)  lanes used=15
-   line haul=$15,659,942  handling=$640,334  build=$0
+[base] OPTIMAL  delivered=197,592 DST/yr  total=$112,421,216/yr ($568.96/ton)  lanes used=15
+   product=$96,120,940  line haul=$15,659,942  handling=$640,334  build=$0
        44,439  Olin Plaquemine Plant  ->  Baton Rouge Complex  [barge]   ($5.95/ton, 33 mi, routed)
        43,455  Covestro Baytown Industrial Complex  ->  Baytown Complex  [barge]   ($5.47/ton, 16 mi, routed)
        ...
@@ -97,6 +97,8 @@ Common changes:
   `data/model/modes.csv`, then rerun `build_distances.py`.
 - **Change a volume:** edit `base_dst_per_yr` in `data/model/sites.csv`. Bear
   and bull follow from `SCENARIO_MULTIPLIERS` in `config.py`.
+- **Change a product price:** edit `price_usd_per_dst` in
+  `data/model/sites.csv` (required for sources, blank for other sites).
 - **Change a rate:** edit `MODE_PARAMS` in `config.py`, and cite a row in
   `data/reference/rate_sources.csv`.
 - **Use a quoted rate for one lane:** add a row to `data/model/lane_rates.csv`.
@@ -113,8 +115,9 @@ One min-cost-flow MILP per scenario, solved with Gurobi (`model.py`):
   transport mode it has. Load/unload arcs between the hub and its mode nodes
   carry handling cost, and transport arcs between sites carry line-haul cost.
   This way, changing mode at a terminal costs a second round of handling.
-- **Objective:** minimize line haul + handling + annualized build cost of
-  candidate modes, in $/yr. Supplier product price is not in the model yet.
+- **Objective:** minimize total landed cost in $/yr: product price at each
+  source (ex freight) + line haul + handling + annualized build cost of
+  candidate modes.
 - **Constraints:** sources ship at most their supply; sinks get exactly their
   demand; optional per-mode capacity and minimum demand share from
   `modes.csv`; a candidate mode carries flow only if the model builds it
@@ -135,6 +138,8 @@ a row in `data/reference/rate_sources.csv` (value, date, URL, page):
   supplier rate XOM gave for Gulf Coast -> Edmonton.
 - Barge: Kirby Inland Marine Aug 2026 towing tariffs (towing only; barge hire
   is not public).
+- Product prices: XOM's 10/07 sheet (ex freight). Covestro's lanes have
+  different prices, so its price is volume-weighted.
 
 These are public list rates, so XOM's contract rates are probably lower.
 
@@ -145,7 +150,7 @@ them changes the results.
 
 | File | Contents |
 | --- | --- |
-| `sites.csv` | 10 suppliers and 10 EM sites in the US and Canada: role, location and base-scenario volume (DST/yr). `notes` records volumes XOM gave in metric tons or as sums. |
+| `sites.csv` | 10 suppliers and 10 EM sites in the US and Canada: role, location, base-scenario volume (DST/yr) and product price ($/DST, sources only). `notes` records volumes and prices XOM gave in metric tons or as sums. |
 | `modes.csv` | Modes each site has: `existing`, or `candidate` with an annualized build cost. Optional capacity and minimum share. Built from EM's caustic model data sheet. |
 | `lane_distances.csv` | Routed miles per lane, written by `build_distances.py`: truck on OpenStreetMap highways, rail on Class 1 lines, barge on the USACE National Waterway Network. |
 | `lane_rates.csv` | Quoted line-haul rates per lane. Empty for now. |
@@ -156,7 +161,7 @@ does not read these; only the rate-check workbook does.
 | File | Contents |
 | --- | --- |
 | `network.xlsx` | The original site workbook (bear/base/bull volumes in DST and DMT, with formulas), kept to show where `sites.csv` came from. The model does not read it: edit `data/model/sites.csv` instead. |
-| `rate_sources.csv` | Source of every rate and assumption. IDs start with X (XOM-stated), D (derived) or A (team assumption). |
+| `rate_sources.csv` | Source of every rate and assumption. IDs start with X (XOM-stated), T / R / B (truck, rail, barge sources), P (product prices), G (general), D (derived) or A (team assumption). |
 | `rail_lanes.csv` | Existing and candidate rail lanes: serving railroads, likely route, interchanges. |
 | `site_rail_access.csv` | Railroads serving each site, with confidence and sources. |
 
@@ -178,10 +183,9 @@ does not read these; only the rate-check workbook does.
 
 ## Status and open gaps (as of 2026-11-05)
 
-- **No product price.** The model minimizes delivered freight cost only, so it
-  can't yet say whether imported caustic is cheaper. Regional price
-  comparisons (US vs. Canada, EU, China and India) are in progress outside the
-  repo.
+- **Prices are XOM's current contracts.** Each source has one price ex
+  freight, from XOM's 10/07 sheet. With supply equal to demand (below), the
+  prices change the total but not which lanes are used.
 - **North America only.** There are no global or China nodes and no ocean
   mode yet.
 - **No Chicago hub in the model.** The Gulf Coast -> Chicago (IMTT Lemont) ->
