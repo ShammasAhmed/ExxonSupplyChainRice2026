@@ -1,7 +1,7 @@
 """Multimodal min-cost flow with optional mode build decisions, for one scenario.
 
     min   sum_s price[s] * shipped[s]  +  sum_a cost[a] * x[a]  +  sum_c build_cost[c] * z[c]
-    s.t.  source hub:        out - in  <= supply
+    s.t.  source hub:        out - in  <= supply cap      (none if uncapped)
           sink hub:          in  - out == demand
           intermediate hub:  in  - out == 0
           mode node:         in  - out == 0
@@ -66,7 +66,8 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
     for s, n in sites.items():
         hub = (s, HUB)
         if n.is_source:
-            m.addConstr(outflow(hub) - inflow(hub) <= n.value(scenario), name=f"supply[{s}]")
+            if n.supply_cap is not None:   # capacity: the same in every scenario
+                m.addConstr(outflow(hub) - inflow(hub) <= n.supply_cap, name=f"supply[{s}]")
         elif n.is_sink:
             m.addConstr(inflow(hub) - outflow(hub) == demand[s], name=f"demand[{s}]")
         else:

@@ -96,6 +96,7 @@ class Node:
     bull: float
     price: float = 0.0          # sources: product price, $ per DST, ex freight
     terminal_fee: float = 0.0   # intermediates: throughput fee, $ per DST passing through
+    supply_cap: float | None = None   # sources: max DST/yr in every scenario (None = uncapped)
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():
@@ -126,6 +127,11 @@ class Node:
             if v < 0:
                 raise ValueError(f"Node {self.name!r}: {s.value} value {v} is negative.")
             object.__setattr__(self, s.value, v)
+        if self.supply_cap is not None:
+            cap = float(self.supply_cap)
+            if cap < 0:
+                raise ValueError(f"Node {self.name!r}: supply_cap {cap} is negative.")
+            object.__setattr__(self, "supply_cap", cap)
         for attr in ("price", "terminal_fee"):
             v = float(getattr(self, attr))
             if v < 0:

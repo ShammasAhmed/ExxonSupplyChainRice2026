@@ -51,6 +51,26 @@ NWN_CACHE_FILE = CACHE_DIR / "nwn.json"
 SCENARIO_MULTIPLIERS = {"bear": 0.8, "base": 1.0, "bull": 1.2}
 SCENARIOS = tuple(SCENARIO_MULTIPLIERS)
 
+# --- Supply --------------------------------------------------------------
+# A source's base_dst_per_yr is what it ships to XOM today. Its supply cap is
+# that volume x the multiplier for its supplier_type in SITES_FILE (None =
+# uncapped). Caps are capacities, so they do not change with the demand
+# scenario.
+#   producer     chlor-alkali plants make 0.3-3 Mt/yr, far above XOM's total
+#                demand (~0.24 Mt/yr in bull), so any cap above that behaves
+#                like no cap. Set a number (e.g. 2.0) to limit how much one
+#                producer can win.
+#   export       export markets (China): uncapped.
+#   terminal,    tank space limits them: 25% above today's volume (team
+#   distributor  assumption A4; IMTT's 2018 utilization of 84.6% would imply
+#                1 / 0.846 = 1.18, rate_sources G3).
+SUPPLY_CAP_MULTIPLIER: dict[str, float | None] = {
+    "producer": None,
+    "export": None,
+    "terminal": 1.25,
+    "distributor": 1.25,
+}
+
 # --- Transport costs -----------------------------------------------------
 # The model's volume unit is the dry short ton (DST, see loader.VOLUME_UNIT),
 # but freight is billed on the weight actually loaded. So the rates below and
