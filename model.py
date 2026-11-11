@@ -1,6 +1,6 @@
 """Multimodal min-cost flow with optional mode build decisions, for one scenario.
 
-    min   sum_a cost[a] * x[a]  +  sum_c build_cost[c] * z[c]
+    min   sum_s price[s] * shipped[s]  +  sum_a cost[a] * x[a]  +  sum_c build_cost[c] * z[c]
     s.t.  source hub:        out - in  <= supply
           sink hub:          in  - out == demand
           intermediate hub:  in  - out == 0
@@ -9,6 +9,8 @@
           unloaded(i, m)   >= min_demand_share(i, m) * demand(i)
           x >= 0,  z binary
 
+price[s] is the source's product price ex freight ($/DST) and shipped[s] its
+net outflow, so the objective is total landed cost.
 cap(i, m) is the Modes-table capacity, or total demand when uncapped (no
 terminal can usefully carry more than everything).
 """
@@ -28,7 +30,7 @@ from node import Mode
 class Solution:
     scenario: str
     status: str
-    objective_usd: float | None                     # $/yr: line haul + handling + builds
+    objective_usd: float | None                     # $/yr: product + line haul + handling + builds
     flows: dict[tuple[str, str, Mode], float]       # (source, sink, mode) -> tons/yr, line haul only
     built: list[tuple[str, Mode]] = field(default_factory=list)
     cost_breakdown: dict[str, float] = field(default_factory=dict)
@@ -56,9 +58,10 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
     def outflow(key):
         return gp.quicksum(x[i] for i in net.arcs_out_of(key))
 
+    product = gp.quicksum(n.price * outflow((s, HUB)) for s, n in sites.items() if n.is_source)
     freight = gp.quicksum(a.cost * x[i] for i, a in enumerate(net.arcs))
     builds = gp.quicksum(net.modes[k].build_cost * z[k] for k in z)
-    m.setObjective(freight + builds, GRB.MINIMIZE)
+    m.setObjective(product + freight + builds, GRB.MINIMIZE)
 
     for s, n in sites.items():
         hub = (s, HUB)
@@ -90,7 +93,8 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
         return Solution(scenario, names.get(m.Status, f"STATUS_{m.Status}"), None, {})
 
     used = {i: x[i].X for i in x if x[i].X > 1e-6}
-    flows, breakdown = {}, {"line haul": 0.0, "handling": 0.0, "build": builds.getValue()}
+    flows, breakdown = {}, {"product": product.getValue(), "line haul": 0.0, "handling": 0.0,
+                            "build": builds.getValue()}
     for i, v in used.items():
         a = net.arcs[i]
         if a.kind is ArcKind.TRANSPORT:
