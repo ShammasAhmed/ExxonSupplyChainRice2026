@@ -70,7 +70,10 @@ tiles.
 `main.py` solves the bear, base and bull scenarios. For each one it prints the
 total cost, the cost breakdown and every lane used, and it writes a map to
 `output/network_map_<scenario>.html` (plus a `.png` if selenium can find
-Chrome). Part of the output:
+Chrome). On the map, a box shows the cost breakdown in $/yr and $/DST, and
+hovering shows freight $/DST on each flow, the price at each source, the
+terminal fee at each hub, and the landed $/DST at each EM site (product +
+logistics; build costs are not allocated to sites). Part of the output:
 
 ```text
 25 sites, 44 site-modes (3 candidates to build), 298 arcs

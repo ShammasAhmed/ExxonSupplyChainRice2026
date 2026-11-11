@@ -17,13 +17,18 @@ terminal can usefully carry more than everything).
 
 from __future__ import annotations
 
+import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
+from graphlib import CycleError, TopologicalSorter
 
 import gurobipy as gp
 from gurobipy import GRB
 
 from network import HUB, ArcKind, Network
 from node import Mode
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -35,6 +40,7 @@ class Solution:
     built: list[tuple[str, Mode]] = field(default_factory=list)
     cost_breakdown: dict[str, float] = field(default_factory=dict)
     total_flow: float = 0.0                         # tons/yr delivered to sinks
+    landed: dict[str, tuple[float, float]] = field(default_factory=dict)  # sink -> ($/ton product, $/ton logistics)
 
     @property
     def avg_cost(self) -> float | None:
@@ -104,4 +110,37 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
         else:
             breakdown["handling + terminal"] += a.cost * v
     built = [(s, Mode(mode)) for (s, mode) in z if z[s, mode].X > 0.5]
-    return Solution(scenario, "OPTIMAL", m.ObjVal, flows, built, breakdown, sum(demand.values()))
+    return Solution(scenario, "OPTIMAL", m.ObjVal, flows, built, breakdown, sum(demand.values()),
+                    _landed_costs(net, used))
+
+
+def _landed_costs(net: Network, used: dict[int, float]) -> dict[str, tuple[float, float]]:
+    """Average $/ton of product and of logistics (line haul, handling, terminal
+    fees) in what each sink receives, following the solved flows.
+
+    Each node's average is the flow-weighted average over its inbound arcs of
+    (upstream average + arc cost); a source hub starts at its price. Build
+    costs are not allocated to sinks. Returns {} if the flow has a cycle
+    (it cannot at an optimum, since every cycle has positive cost).
+    """
+    into: dict = defaultdict(list)
+    preds: dict = defaultdict(set)
+    for i, v in used.items():
+        a = net.arcs[i]
+        into[a.head].append((a, v))
+        preds[a.head].add(a.tail)
+        preds.setdefault(a.tail, set())   # sources have no predecessors but must be ordered
+    try:
+        order = list(TopologicalSorter(preds).static_order())
+    except CycleError:
+        logger.warning("Flow has a cycle; landed costs per sink are not reported.")
+        return {}
+    avg: dict = {}
+    for key in order:
+        if not into[key]:   # a source hub (sources only load)
+            avg[key] = (net.sites[key[0]].price, 0.0)
+            continue
+        total = sum(v for _, v in into[key])
+        avg[key] = (sum(v * avg[a.tail][0] for a, v in into[key]) / total,
+                    sum(v * (avg[a.tail][1] + a.cost) for a, v in into[key]) / total)
+    return {s: avg[(s, HUB)] for s, n in net.sites.items() if n.is_sink and (s, HUB) in avg}
