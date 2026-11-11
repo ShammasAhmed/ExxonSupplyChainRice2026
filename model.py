@@ -93,7 +93,7 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
         return Solution(scenario, names.get(m.Status, f"STATUS_{m.Status}"), None, {})
 
     used = {i: x[i].X for i in x if x[i].X > 1e-6}
-    flows, breakdown = {}, {"product": product.getValue(), "line haul": 0.0, "handling": 0.0,
+    flows, breakdown = {}, {"product": product.getValue(), "line haul": 0.0, "handling + terminal": 0.0,
                             "build": builds.getValue()}
     for i, v in used.items():
         a = net.arcs[i]
@@ -101,6 +101,6 @@ def solve_scenario(net: Network, scenario: str, *, verbose: bool = False) -> Sol
             flows[(a.tail[0], a.head[0], a.mode)] = v
             breakdown["line haul"] += a.cost * v
         else:
-            breakdown["handling"] += a.cost * v
+            breakdown["handling + terminal"] += a.cost * v
     built = [(s, Mode(mode)) for (s, mode) in z if z[s, mode].X > 0.5]
     return Solution(scenario, "OPTIMAL", m.ObjVal, flows, built, breakdown, sum(demand.values()))

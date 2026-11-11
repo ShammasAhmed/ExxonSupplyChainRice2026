@@ -1,4 +1,4 @@
-"""Precompute routed miles for every truck, rail and barge lane in the network.
+"""Precompute routed miles for every truck, rail, barge and ocean lane in the network.
 
     python build_distances.py                  # all modes
     python build_distances.py --modes barge    # rebuild one mode; other rows are kept
@@ -13,6 +13,8 @@ Networks:
     rail   scgraph "north_america_rail" (Class 1 lines, USDOT)
     barge  USACE National Waterway Network (USDOT NTAD), routed on its
            published link lengths, also counting miles against the current
+    ocean  scgraph "marnet" (global sea lanes). Display only: ocean lanes
+           are priced by quote, not by miles.
 
 Each site joins its nearest network node by a straight leg x the mode's
 circuity (config.MODE_PARAMS). `off_network_miles` reports those legs, so a
@@ -40,7 +42,7 @@ from routing import great_circle_miles, haversine_miles
 
 logger = logging.getLogger("build_distances")
 
-SCGRAPH_NETWORKS = {Mode.TRUCK: "world_highways", Mode.RAIL: "north_america_rail"}
+SCGRAPH_NETWORKS = {Mode.TRUCK: "world_highways", Mode.RAIL: "north_america_rail", Mode.OCEAN: "marnet"}
 
 NWN_URL = ("https://services7.arcgis.com/n1YM8pTrFmm7L4hs/ArcGIS/rest/services/"
            "Waterway_Networks/FeatureServer")

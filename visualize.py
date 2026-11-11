@@ -31,7 +31,15 @@ _MODE_COLORS = {
     Mode.RAIL: ("#5a5a5a", 0.8),
     Mode.BARGE: ("#2166ac", 0.75),
     Mode.PIPELINE: ("#762a83", 0.75),
+    Mode.OCEAN: ("#01665e", 0.75),
 }
+
+
+def _pos(n: Node) -> tuple[float, float]:
+    """(lat, lon) for drawing. Eastern-hemisphere sites (China) are shifted by
+    -360 degrees so they sit west of North America and trans-Pacific lines
+    cross the Pacific, not the Atlantic."""
+    return (n.lat, n.lon - 360.0 if n.lon > 0 else n.lon)
 
 _STYLE = {
     NodeCategory.SOURCE: dict(color="#1a9641", symbol="triangle", label="Source"),
@@ -84,13 +92,14 @@ def plot_nodes(
     nodes: Iterable[Node],
     *,
     show_names: bool = False,
-    show_intermediate: bool = False,
+    show_intermediate: bool = True,
     flows: dict[tuple[str, str, Mode], float] | None = None,
     title: str | None = None,
     save_path: str | Path | None = None,
     show: bool = False,
 ) -> folium.Map:
-    """Plot sources (green triangles) and sinks (red circles) on a Folium map.
+    """Plot sources (green triangles), sinks (red circles) and intermediate hubs
+    (blue squares) on a Folium map.
 
     Hovering a point shows its name, location and base value; set show_names
     to also print names on the map (cluttered where nodes are close).
@@ -136,15 +145,15 @@ def plot_nodes(
                 mode_groups[mode] = folium.FeatureGroup(name=mode.value.capitalize())
                 legend_entries.append(("line", color, mode.value.capitalize()))
             folium.PolyLine(
-                [(a.lat, a.lon), (b.lat, b.lon)],
+                [_pos(a), _pos(b)],
                 color=color, weight=2, opacity=opacity,
                 tooltip=f"{src} → {snk}<br>{vol:,.0f} ({mode.value})",
             ).add_to(mode_groups[mode])
 
             # Stagger labels when one pair is served by several modes.
             k = per_pair[(src, snk)] = per_pair.get((src, snk), -1) + 1
-            mid_lat = (a.lat + b.lat) / 2 + 0.4 * k
-            mid_lon = (a.lon + b.lon) / 2
+            mid_lat = (_pos(a)[0] + _pos(b)[0]) / 2 + 0.4 * k
+            mid_lon = (_pos(a)[1] + _pos(b)[1]) / 2
             folium.Marker(
                 (mid_lat, mid_lon),
                 icon=folium.DivIcon(
@@ -176,7 +185,7 @@ def plot_nodes(
 
         for n in group:
             marker = folium.Marker(
-                (n.lat, n.lon),
+                _pos(n),
                 icon=folium.DivIcon(
                     html=html, icon_size=size,
                     icon_anchor=(size[0] // 2, size[1] // 2),
@@ -188,7 +197,7 @@ def plot_nodes(
             marker.add_to(fg)
             if show_names:
                 folium.Marker(
-                    (n.lat, n.lon),
+                    _pos(n),
                     icon=folium.DivIcon(
                         icon_size=(0, 0),
                         icon_anchor=(-8, 8),
@@ -201,8 +210,9 @@ def plot_nodes(
 
     # ---- view, legend, title, layer toggle ------------------------------
     if nodes:
-        m.fit_bounds([[min(n.lat for n in nodes), min(n.lon for n in nodes)],
-                      [max(n.lat for n in nodes), max(n.lon for n in nodes)]],
+        pos = [_pos(n) for n in nodes]
+        m.fit_bounds([[min(p[0] for p in pos), min(p[1] for p in pos)],
+                      [max(p[0] for p in pos), max(p[1] for p in pos)]],
                      padding=(30, 30))
 
     m.get_root().html.add_child(folium.Element(_legend_html(legend_entries, "Legend")))
