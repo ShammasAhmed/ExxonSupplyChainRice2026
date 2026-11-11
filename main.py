@@ -75,10 +75,11 @@ def main() -> None:
                   f"(${arc.cost:.2f}/ton, {arc.miles:,.0f} mi, {arc.basis.value})")
 
         title = f"Caustic soda flows: {scenario.capitalize()} scenario ({VOLUME_UNIT})"
-        title += " - placeholder freight rates"
         for ext in ("html", "png"):
             try:
                 plot_nodes(nodes, flows=sol.flows, title=title,
+                           lane_costs={k: lanes[k].cost for k in sol.flows}, landed=sol.landed,
+                           cost_breakdown=sol.cost_breakdown, total_flow=sol.total_flow,
                            save_path=out / f"{config.NETWORK_MAP_NAME.format(scenario=scenario)}.{ext}")
             except RuntimeError as exc:   # kaleido/Chrome missing: keep the HTML map
                 logger.warning("Could not write .%s (%s). Run `plotly_get_chrome` for PNG export.",

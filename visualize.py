@@ -88,12 +88,51 @@ def _legend_html(entries: list[tuple[str, str, str]], title: str) -> str:
     )
 
 
+def _cost_box_html(breakdown: dict[str, float], total_flow: float) -> str:
+    """Bottom-left box: each cost component in $/yr and $ per delivered DST."""
+    rows = [(k.capitalize(), v) for k, v in breakdown.items()] + [("Total", sum(breakdown.values()))]
+    cells = "".join(
+        f'<tr style="{"font-weight:bold;border-top:1px solid #999;" if label == "Total" else ""}">'
+        f'<td style="padding:1px 8px 1px 0;">{label}</td>'
+        f'<td style="text-align:right;padding:1px 8px;">${v / 1e6:,.2f}M</td>'
+        f'<td style="text-align:right;padding:1px 0 1px 8px;">${v / total_flow:,.2f}</td></tr>'
+        for label, v in rows)
+    return ('<div style="position:fixed;bottom:44px;left:12px;z-index:9999;'
+            'background:rgba(255,255,255,0.9);padding:8px 12px;border-radius:6px;'
+            'box-shadow:0 1px 4px rgba(0,0,0,0.3);font:12px sans-serif;">'
+            '<b>Cost breakdown</b><table style="border-collapse:collapse;margin-top:3px;">'
+            '<tr style="color:#555;"><td></td><td style="text-align:right;padding:0 8px;">per yr</td>'
+            '<td style="text-align:right;padding-left:8px;">per DST</td></tr>'
+            f'{cells}</table></div>')
+
+
+def _site_tooltip(n: Node, label: str, landed: dict[str, tuple[float, float]] | None) -> str:
+    lines = [f"<b>{n.name}</b>", f"{n.city}, {n.state}"]
+    if n.is_source:
+        cap = "uncapped" if n.supply_cap is None else f"cap {n.supply_cap:,.0f}"
+        lines += [f"Today's volume to XOM: {n.base:,.0f} DST/yr ({cap})",
+                  f"Price: ${n.price:,.2f}/DST ex freight"]
+    elif n.is_sink:
+        lines.append(f"Demand (base): {n.base:,.0f} DST/yr")
+        if landed and n.name in landed:
+            product, logistics = landed[n.name]
+            lines.append(f"Landed: ${product + logistics:,.2f}/DST "
+                         f"(product ${product:,.2f} + logistics ${logistics:,.2f})")
+    elif n.terminal_fee:
+        lines.append(f"Terminal fee: ${n.terminal_fee:,.2f}/DST")
+    return "<br>".join(lines + [f"<i>{label}</i>"])
+
+
 def plot_nodes(
     nodes: Iterable[Node],
     *,
     show_names: bool = False,
     show_intermediate: bool = True,
     flows: dict[tuple[str, str, Mode], float] | None = None,
+    lane_costs: dict[tuple[str, str, Mode], float] | None = None,
+    landed: dict[str, tuple[float, float]] | None = None,
+    cost_breakdown: dict[str, float] | None = None,
+    total_flow: float = 0.0,
     title: str | None = None,
     save_path: str | Path | None = None,
     show: bool = False,
@@ -110,6 +149,12 @@ def plot_nodes(
     flows:     optional {(source_name, sink_name, mode): volume}. Each is drawn
                as a straight line (not the route geometry) colored by mode,
                with a small volume label at its midpoint.
+    lane_costs: optional {(origin, destination, mode): line haul $/DST}, shown
+               when hovering a flow.
+    landed:    optional {sink: ($/DST product, $/DST logistics)}, shown when
+               hovering a sink (model.Solution.landed).
+    cost_breakdown, total_flow: optional {component: $/yr} and delivered
+               DST/yr, drawn as a box in the bottom-left corner.
     """
     nodes = list(nodes)
     categories = [NodeCategory.SOURCE, NodeCategory.SINK]
@@ -147,7 +192,9 @@ def plot_nodes(
             folium.PolyLine(
                 [_pos(a), _pos(b)],
                 color=color, weight=2, opacity=opacity,
-                tooltip=f"{src} → {snk}<br>{vol:,.0f} ({mode.value})",
+                tooltip=(f"{src} → {snk}<br>{vol:,.0f} DST/yr ({mode.value})"
+                         + (f"<br>Freight ${lane_costs[(src, snk, mode)]:,.2f}/DST"
+                            if lane_costs and (src, snk, mode) in lane_costs else "")),
             ).add_to(mode_groups[mode])
 
             # Stagger labels when one pair is served by several modes.
@@ -190,9 +237,7 @@ def plot_nodes(
                     html=html, icon_size=size,
                     icon_anchor=(size[0] // 2, size[1] // 2),
                 ),
-                tooltip=(f"<b>{n.name}</b><br>{n.city}, {n.state}"
-                         f"<br>Base: {n.base:,.0f}"
-                         f"<br><i>{style['label']}</i>"),
+                tooltip=_site_tooltip(n, style["label"], landed),
             )
             marker.add_to(fg)
             if show_names:
@@ -216,6 +261,8 @@ def plot_nodes(
                      padding=(30, 30))
 
     m.get_root().html.add_child(folium.Element(_legend_html(legend_entries, "Legend")))
+    if cost_breakdown and total_flow:
+        m.get_root().html.add_child(folium.Element(_cost_box_html(cost_breakdown, total_flow)))
     if title:
         m.get_root().html.add_child(folium.Element(
             '<div style="position:fixed;top:10px;left:50%;transform:translateX(-50%);'
