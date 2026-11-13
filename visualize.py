@@ -6,12 +6,20 @@ Folium produces an interactive HTML map (OpenStreetMap/CARTO tiles, zoom/pan).
 Static PNG export is optional and needs selenium + a browser driver:
 
     pip install selenium
+
+Flows follow their actual route (rail track, highways, waterways, sea lanes)
+on the same scgraph / USACE networks build_distances.py prices them on, over
+a gray backdrop of the North American Class 1 rail network (the look of
+CN_Tests/CN_path_visualizer.py, for every railroad and mode). Without scgraph
+the map falls back to straight lines.
 """
 
 from __future__ import annotations
 
+import math
 import os
 import webbrowser
+from functools import cache
 from pathlib import Path
 from typing import Iterable
 
@@ -19,20 +27,25 @@ import folium
 
 import config
 from node import Mode, Node, NodeCategory
+from routing import haversine_miles
 
 # CARTO basemaps need a free key (https://carto.com/basemaps/apikey/). Set it
 # in your shell, e.g. `export CARTO_API_KEY=...` in ~/.zshrc; never commit it.
 # Without a key the maps use plain OpenStreetMap tiles instead.
 CARTO_API_KEY = os.environ.get("CARTO_API_KEY", "").strip()
 
-# (hex color, opacity)
-_MODE_COLORS = {
-    Mode.TRUCK: ("#d6604d", 0.75),
-    Mode.RAIL: ("#5a5a5a", 0.8),
-    Mode.BARGE: ("#2166ac", 0.75),
-    Mode.PIPELINE: ("#762a83", 0.75),
-    Mode.OCEAN: ("#01665e", 0.75),
+# (hex color, SVG dash pattern or None). Rail, barge and ocean take the three
+# hues that stay distinguishable for color-blind readers when any two routes
+# cross; truck and pipeline add a dash pattern so they never rely on hue alone.
+_MODE_STYLE = {
+    Mode.RAIL: ("#eb6834", None),
+    Mode.BARGE: ("#2a78d6", None),
+    Mode.OCEAN: ("#1baf7a", None),
+    Mode.TRUCK: ("#6250d6", "7 5"),
+    Mode.PIPELINE: ("#e87ba4", "1 6"),
 }
+_RAIL_BACKDROP_COLOR = "#8a8a86"
+_FLOW_WEIGHT = (2.5, 7.0)   # px line width for the smallest / largest flow
 
 
 def _pos(n: Node) -> tuple[float, float]:
@@ -40,6 +53,100 @@ def _pos(n: Node) -> tuple[float, float]:
     -360 degrees so they sit west of North America and trans-Pacific lines
     cross the Pacific, not the Atlantic."""
     return (n.lat, n.lon - 360.0 if n.lon > 0 else n.lon)
+
+
+# ---- route geometry --------------------------------------------------------
+
+@cache
+def _network(mode: Mode):
+    """The scgraph GeoGraph build_distances.py routes this mode on, or None
+    (pipeline, scgraph not installed, or no cached waterway network)."""
+    try:
+        import build_distances as bd
+    except ImportError:
+        return None
+    if mode is Mode.BARGE:
+        if not config.NWN_CACHE_FILE.exists():   # don't download while drawing a map
+            return None
+        return bd.build_nwn_graph(bd.fetch_nwn())[0]
+    name = bd.SCGRAPH_NETWORKS.get(mode)
+    return bd.GeoGraph.load_geograph(name) if name else None
+
+
+@cache
+def _routed_points(a_lat: float, a_lon: float, b_lat: float, b_lon: float,
+                   mode: Mode) -> tuple[tuple[float, float], ...] | None:
+    graph = _network(mode)
+    if graph is None:
+        return None
+    try:
+        r = graph.get_shortest_path(
+            {"latitude": a_lat, "longitude": a_lon}, {"latitude": b_lat, "longitude": b_lon},
+            node_addition_circuity=config.MODE_PARAMS[mode.value]["circuity"])
+    except Exception:   # scgraph raises plain Exceptions for unreachable points
+        return None
+    return tuple((round(lat, 4), round(lon, 4)) for lat, lon in r["coordinate_path"])
+
+
+def _route_path(a: Node, b: Node, mode: Mode) -> list[tuple[float, float]]:
+    """(lat, lon) points along the lane's route, or a straight line if it has none.
+
+    Longitudes are unwrapped so the path starts at _pos(a) and never jumps
+    360 degrees (trans-Pacific sea lanes cross the antimeridian)."""
+    pts = _routed_points(a.lat, a.lon, b.lat, b.lon, Mode(mode)) or ((a.lat, a.lon), (b.lat, b.lon))
+    out, prev = [], _pos(a)[1]
+    for lat, lon in pts:
+        lon += 360.0 * round((prev - lon) / 360.0)
+        out.append((lat, lon))
+        prev = lon
+    return out
+
+
+def _path_midpoint(path: list[tuple[float, float]]) -> tuple[float, float]:
+    """The point halfway along a path, by distance."""
+    legs = [haversine_miles(*p, *q) for p, q in zip(path, path[1:])]
+    half = sum(legs) / 2
+    for (p, q), leg in zip(zip(path, path[1:]), legs):
+        if leg >= half and leg > 0:
+            t = half / leg
+            return (p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1]))
+        half -= leg
+    return path[len(path) // 2]
+
+
+@cache
+def _rail_backdrop() -> list[list[tuple[float, float]]]:
+    """The Class 1 rail network as polylines, chaining through pass-through
+    nodes so the map holds a few thousand lines instead of every edge."""
+    graph = _network(Mode.RAIL)
+    if graph is None:
+        return []
+    adj: list[set[int]] = [set() for _ in graph.nodes]
+    for u, nbrs in enumerate(graph.graph):
+        for v in nbrs:
+            if u != v:
+                adj[u].add(v)
+                adj[v].add(u)
+    seen: set[tuple[int, int]] = set()
+
+    def walk(u: int, v: int) -> list[int]:
+        chain = [u, v]
+        seen.update({(u, v), (v, u)})
+        while len(adj[v]) == 2:
+            w = next(x for x in adj[v] if x != chain[-2])
+            if (v, w) in seen:
+                break
+            seen.update({(v, w), (w, v)})
+            chain.append(w)
+            v = w
+        return chain
+
+    chains = []
+    for start in sorted(range(len(adj)), key=lambda n: len(adj[n]) == 2):   # junctions first, then loops
+        for v in adj[start]:
+            if (start, v) not in seen:
+                chains.append(walk(start, v))
+    return [[(round(graph.nodes[n][0], 3), round(graph.nodes[n][1], 3)) for n in c] for c in chains]
 
 _STYLE = {
     NodeCategory.SOURCE: dict(color="#1a9641", symbol="triangle", label="Source"),
@@ -70,12 +177,16 @@ def _symbol_html(symbol: str, color: str) -> tuple[str, tuple[int, int]]:
 
 
 def _legend_html(entries: list[tuple[str, str, str]], title: str) -> str:
-    """entries: (kind, color, label) with kind in {"symbol:<shape>", "line"}."""
+    """entries: (kind, color, label) with kind in {"symbol:<shape>", "line", "line:<dash>"}."""
     rows = []
     for kind, color, label in entries:
-        if kind == "line":
-            swatch = (f'<span style="display:inline-block;width:18px;height:3px;'
-                      f'background:{color};vertical-align:middle;"></span>')
+        if kind.startswith("line"):
+            dash = kind.partition(":")[2]
+            width = 1.5 if color == _RAIL_BACKDROP_COLOR else 3
+            swatch = (f'<svg width="22" height="8" style="vertical-align:middle;">'
+                      f'<line x1="2" y1="4" x2="20" y2="4" stroke="{color}" stroke-width="{width}" '
+                      f'stroke-linecap="round"{f" stroke-dasharray={chr(34)}{dash}{chr(34)}" if dash else ""}/>'
+                      f'</svg>')
         else:
             html, _ = _symbol_html(kind.split(":")[1], color)
             swatch = f'<span style="display:inline-block;width:18px;text-align:center;">{html}</span>'
@@ -133,6 +244,8 @@ def plot_nodes(
     landed: dict[str, tuple[float, float]] | None = None,
     cost_breakdown: dict[str, float] | None = None,
     total_flow: float = 0.0,
+    routes: bool = True,
+    rail_network: bool = True,
     title: str | None = None,
     save_path: str | Path | None = None,
     show: bool = False,
@@ -147,8 +260,11 @@ def plot_nodes(
                ".png"  -> static image (needs selenium + browser driver).
     show:      open the interactive map in your browser.
     flows:     optional {(source_name, sink_name, mode): volume}. Each is drawn
-               as a straight line (not the route geometry) colored by mode,
-               with a small volume label at its midpoint.
+               along its routed path, colored by mode, with width growing
+               with volume and a small volume label halfway along.
+    routes:    draw flows along their rail / road / waterway / sea-lane route
+               (False: straight lines).
+    rail_network: draw the Class 1 rail network in gray underneath.
     lane_costs: optional {(origin, destination, mode): line haul $/DST}, shown
                when hovering a flow.
     landed:    optional {sink: ($/DST product, $/DST logistics)}, shown when
@@ -162,7 +278,7 @@ def plot_nodes(
         categories.append(NodeCategory.INTERMEDIATE)
 
     m = folium.Map(location=[39.5, -98.35], zoom_start=4,
-                   tiles=None, control_scale=True)
+                   tiles=None, control_scale=True, prefer_canvas=True)
     if CARTO_API_KEY:
         folium.TileLayer(
             tiles=(f"https://basemaps.cartocdn.com/rastertiles/light_all/"
@@ -174,6 +290,14 @@ def plot_nodes(
     else:
         folium.TileLayer("OpenStreetMap", name="OpenStreetMap").add_to(m)
     legend_entries: list[tuple[str, str, str]] = []
+    flow_paths: list[list[tuple[float, float]]] = []
+
+    # ---- rail network backdrop --------------------------------------------
+    if rail_network and (rail_lines := _rail_backdrop()):
+        folium.PolyLine(rail_lines, color=_RAIL_BACKDROP_COLOR, weight=1, opacity=0.45,
+                        interactive=False).add_to(
+            folium.FeatureGroup(name="Class 1 rail network (USDOT)").add_to(m))
+        legend_entries.append(("line", _RAIL_BACKDROP_COLOR, "Rail network"))
 
     # ---- flows -----------------------------------------------------------
     if flows:
@@ -181,28 +305,35 @@ def plot_nodes(
         mode_groups: dict[Mode, folium.FeatureGroup] = {}
         label_group = folium.FeatureGroup(name="Flow labels (DST/yr)", show=True)
         per_pair: dict[tuple[str, str], int] = {}
+        top = max(flows.values()) or 1.0
 
-        for (src, snk, mode), vol in flows.items():
+        # Largest flows first, so smaller ones are drawn on top and stay hoverable.
+        for (src, snk, mode), vol in sorted(flows.items(), key=lambda kv: -kv[1]):
             a, b = by_name[src], by_name[snk]
-            color, opacity = _MODE_COLORS[mode]
+            color, dash = _MODE_STYLE[mode]
+            path = _route_path(a, b, mode) if routes else [_pos(a), _pos(b)]
+            flow_paths.append(path)
+            lo, hi = _FLOW_WEIGHT
+            weight = lo + (hi - lo) * math.sqrt(max(vol, 0) / top)
 
             if mode not in mode_groups:
                 mode_groups[mode] = folium.FeatureGroup(name=mode.value.capitalize())
-                legend_entries.append(("line", color, mode.value.capitalize()))
-            folium.PolyLine(
-                [_pos(a), _pos(b)],
-                color=color, weight=2, opacity=opacity,
-                tooltip=(f"{src} → {snk}<br>{vol:,.0f} DST/yr ({mode.value})"
-                         + (f"<br>Freight ${lane_costs[(src, snk, mode)]:,.2f}/DST"
-                            if lane_costs and (src, snk, mode) in lane_costs else "")),
-            ).add_to(mode_groups[mode])
+                legend_entries.append((f"line:{dash}" if dash else "line", color,
+                                       mode.value.capitalize()))
+            tooltip = (f"{src} → {snk}<br>{vol:,.0f} DST/yr ({mode.value})"
+                       + (f"<br>Freight ${lane_costs[(src, snk, mode)]:,.2f}/DST"
+                          if lane_costs and (src, snk, mode) in lane_costs else ""))
+            # White casing under each route so it reads over the gray rail backdrop.
+            folium.PolyLine(path, color="white", weight=weight + 3, opacity=0.9,
+                            interactive=False).add_to(mode_groups[mode])
+            folium.PolyLine(path, color=color, weight=weight, opacity=0.95, dash_array=dash,
+                            tooltip=tooltip).add_to(mode_groups[mode])
 
             # Stagger labels when one pair is served by several modes.
             k = per_pair[(src, snk)] = per_pair.get((src, snk), -1) + 1
-            mid_lat = (_pos(a)[0] + _pos(b)[0]) / 2 + 0.4 * k
-            mid_lon = (_pos(a)[1] + _pos(b)[1]) / 2
+            mid_lat, mid_lon = _path_midpoint(path)
             folium.Marker(
-                (mid_lat, mid_lon),
+                (mid_lat + 0.4 * k, mid_lon),
                 icon=folium.DivIcon(
                     icon_size=(0, 0),
                     icon_anchor=(0, 0),
@@ -254,8 +385,12 @@ def plot_nodes(
         fg.add_to(m)
 
     # ---- view, legend, title, layer toggle ------------------------------
-    if nodes:
-        pos = [_pos(n) for n in nodes]
+    # With flows, frame the routes and every sink (unused far-off sources such
+    # as China stay on the map, just off the opening view); else every node.
+    pos = ([p for path in flow_paths for p in path]
+           + [_pos(n) for n in nodes if n.category is NodeCategory.SINK]
+           if flows else [_pos(n) for n in nodes])
+    if pos:
         m.fit_bounds([[min(p[0] for p in pos), min(p[1] for p in pos)],
                       [max(p[0] for p in pos), max(p[1] for p in pos)]],
                      padding=(30, 30))
