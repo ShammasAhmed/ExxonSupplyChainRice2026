@@ -15,7 +15,7 @@ interrupted build resumes where it stopped. Delete that folder after changing
 the model or its data, or the old results are reused.
 
 Controls (stop values; the default is marked *):
-    china_ocean        China -> Vancouver ocean rate, $/wet MT: Off, 185, 145*, 120, 100, 80
+    china_ocean        China -> Vancouver ocean rate, $/wet MT: 80, 100, 120, 145*, 185, Off
     supplier_switch    $/yr per new (supplier, XOM site) pair: 0, 25k, 50k*, 100k, 250k, 500k, 1M
     mode_switch        $/yr per (XOM site, new arrival mode): 0, 10k, 50k*, 100k, 250k, 500k, 1M
     supply_cap         terminals and distributors, x today's volume: 1.0, 1.25*, 1.5, uncapped
@@ -73,8 +73,8 @@ CONTROLS = [
          unit="$/wet MT",
          help="Ocean rate from Qingdao to North Vancouver. Off removes China as a supplier. "
               "Our base estimate is $145 (range $115-185); China product is $320/DMT FOB.",
-         stops=[dict(label="Off", value=None)] + [dict(label=f"${v}", value=v) for v in (185, 145, 120, 100, 80)],
-         default=2),
+         stops=[dict(label=f"${v}", value=v) for v in (80, 100, 120, 145, 185)] + [dict(label="Off", value=None)],
+         default=3),
     dict(id="supplier_switch", label="Supplier switching cost", group="Switching costs", kind="slider",
          decision=False, unit="$/yr per new supplier at a site",
          help="Yearly cost of each new supplier at an XOM site: qualification, audit, contract (team "
