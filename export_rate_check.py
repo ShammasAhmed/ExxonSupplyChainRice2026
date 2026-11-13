@@ -277,13 +277,19 @@ MODE_SOURCES = {
 def current_lanes(ws, current, sites, refs) -> None:
     """XOM's current lanes (CURRENT_FLOWS_FILE, from XOM's 10/07 sheet), not the model's optimum."""
     lanes = []
-    for (a, b, mode), lane in sorted(current.items(), key=lambda kv: (kv[0][2].value, kv[0][0])):
-        d = lane_distance(sites[a], sites[b], mode)
-        lanes.append((a, b, mode.value, round(d.miles, 1), round(d.upstream_miles, 1),
-                      round(lane.dst_per_yr * config.METRIC_TONS_PER_SHORT_TON)))
+    for _, lane in sorted(current.items(), key=lambda kv: (kv[0][2].value, kv[0][0])):
+        if lane.dst_per_yr <= 0:   # an alternative origin XOM named, not a lane in use
+            continue
+        for a, b, mode in lane.path:   # a lane through a terminal is listed leg by leg
+            d = lane_distance(sites[a], sites[b], mode)
+            lanes.append((a, b, mode.value, round(d.miles, 1), round(d.upstream_miles, 1),
+                          round(lane.dst_per_yr * config.METRIC_TONS_PER_SHORT_TON)))
     end = lane_table(ws, "XOM's current lanes (10/07 sheet, base volumes), sourced costs", lanes, refs,
                      "CurrentLanes")
     note_row(ws, end + 1, "Barge has no per-load figure: barges carry ~1,500+ MT and pricing depends on tow size.")
+    note_row(ws, end + 2, "Joliet's supply goes through the Olin Lemont Terminal, listed leg by leg. Its barge "
+                          "leg shows the tariff formula; the model uses the lower rate implied by XOM's $450 "
+                          "terminal price (D22).")
 
 
 def chicago_hub(ws, rail_df: pd.DataFrame, refs) -> None:

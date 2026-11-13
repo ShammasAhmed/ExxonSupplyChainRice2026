@@ -49,6 +49,14 @@ RATE_CHECK_NAME = "XOM_rate_check.xlsx"                # export_rate_check.py
 SITES_MAP_NAME = "network_map"                         # visualize.py run directly, + .html / .png
 MAP_PREVIEW_FILE = OUTPUT_DIR / "_network_map_preview.html"   # visualize.plot_nodes(show=True)
 
+# Webapp (static site, no server): open WEBAPP_DIR/index.html in a browser.
+# The data files are JavaScript (window.APP_DATA / window.APP_GEOMETRY) so the
+# page also works when opened straight from disk (file://).
+WEBAPP_DIR = ROOT / "webapp"
+WEBAPP_DATA_FILE = WEBAPP_DIR / "data" / "app_data.js"          # build_webapp_data.py
+WEBAPP_GEOMETRY_FILE = WEBAPP_DIR / "data" / "geometry.js"      # scripts/build_route_geometry.py
+WEBAPP_GRID_CACHE_DIR = OUTPUT_DIR / "webapp_grid"              # per-run results, before packing
+
 # Downloaded data (git-ignored): the USACE waterway network for build_distances.py.
 CACHE_DIR = ROOT / ".cache"
 NWN_CACHE_FILE = CACHE_DIR / "nwn.json"

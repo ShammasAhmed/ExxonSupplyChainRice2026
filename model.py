@@ -22,12 +22,18 @@ flow (Solution.routes).
           X unloaded at (t,m)     >= min_demand_share(t,m) * demand[t]
           sum_{k of s} deliv[k,t] <= demand[t] * y[s,t]           (s,t) not a current pair
           X unloaded at (t,m)     <= demand[t] * u[t,m]           t does not receive by m today
+          X unloaded at terminal i <= throughput cap[i]           (only if a cap is given)
           x >= 0;  z, y, u binary
 
 price[k,t] follows the rule in config ("Product price"). cap(i, m) is the
 Modes-table capacity, or total demand when uncapped. With as_is=True the
 flows are fixed to XOM's current lanes (Network.current), scaled to the
 scenario, so the same costs price today's network.
+
+What-if inputs (all optional, used by build_webapp_data.py): closed_sites and
+closed_lanes take sites and lanes out of the network, fixed_builds forces a
+candidate mode to be built (True) or not (False), and caps overrides a
+source's supply cap or sets a terminal's throughput cap (None = uncapped).
 """
 
 from __future__ import annotations
@@ -41,7 +47,7 @@ from gurobipy import GRB
 
 import config
 from network import HUB, ArcKind, Network, NodeKey
-from node import Mode
+from node import LaneKey, Mode
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +161,9 @@ def price_table(net: Network, *, lane_prices: bool = True) -> dict[tuple[Commodi
                 out[(k, t)] = lane.price
             elif lane_prices and by_mode.get(k):
                 vols = by_mode[k]
-                out[(k, t)] = sum(v * p for v, p in vols) / sum(v for v, _ in vols)
+                weight = sum(v for v, _ in vols)
+                out[(k, t)] = (sum(v * p for v, p in vols) / weight if weight > 0
+                               else sum(p for _, p in vols) / len(vols))
             else:
                 out[(k, t)] = net.sites[s].price
     return out
@@ -163,6 +171,10 @@ def price_table(net: Network, *, lane_prices: bool = True) -> dict[tuple[Commodi
 
 def solve_scenario(net: Network, scenario: str, *, as_is: bool = False, lane_prices: bool = True,
                    supplier_switch_cost: float | None = None, mode_switch_cost: float | None = None,
+                   closed_sites: frozenset[str] | set[str] = frozenset(),
+                   closed_lanes: frozenset[LaneKey] | set[LaneKey] = frozenset(),
+                   fixed_builds: dict[NodeKey, bool] | None = None,
+                   caps: dict[str, float | None] | None = None,
                    verbose: bool = False) -> Solution:
     """Solve one scenario. Switch costs default to config (0 = off).
 
@@ -187,6 +199,15 @@ def solve_scenario(net: Network, scenario: str, *, as_is: bool = False, lane_pri
     m.Params.OutputFlag = 1 if verbose else 0
     x = m.addVars([(k, i) for k in comms for i in reach[k]], lb=0.0, name="x")
     z = m.addVars([(sm.site, sm.mode.value) for sm in net.candidates], vtype=GRB.BINARY, name="z")
+    closed = {i for i, a in enumerate(net.arcs)
+              if a.tail[0] in closed_sites or a.head[0] in closed_sites
+              or (a.kind is ArcKind.TRANSPORT and (a.tail[0], a.head[0], a.mode) in closed_lanes)}
+    for (k, i), var in x.items():
+        if i in closed or k[0] in closed_sites:
+            var.UB = 0.0
+    for key, build in (fixed_builds or {}).items():
+        if key in z:
+            z[key].LB = z[key].UB = 1.0 if build else 0.0
 
     on_arc: dict[int, list] = defaultdict(list)        # arc -> its x vars across commodities
     for (k, i), var in x.items():
@@ -216,7 +237,7 @@ def solve_scenario(net: Network, scenario: str, *, as_is: bool = False, lane_pri
     builds = gp.quicksum(net.modes[k].build_cost * z[k] for k in z)
 
     current_pairs = {(s, t) for s, t, _ in net.current}
-    current_modes = {(t, mode.value) for _, t, mode in net.current}
+    current_modes = {(lane.sink, lane.last_mode.value) for lane in net.current.values()}
     y, u = {}, {}
     if sup_cost > 0:
         for s in {k[0] for k in comms}:
@@ -231,10 +252,17 @@ def solve_scenario(net: Network, scenario: str, *, as_is: bool = False, lane_pri
     m.setObjective(product + logistics + builds + switches, GRB.MINIMIZE)
 
     # --- constraints -------------------------------------------------------
+    caps = caps or {}
     for s, n in sites.items():
-        if n.is_source and n.supply_cap is not None:   # capacity: the same in every scenario
-            m.addConstr(gp.quicksum(x[k, i] for k, i in comms.items() if k[0] == s) <= n.supply_cap,
+        cap = caps.get(s, n.supply_cap)
+        if cap is None:
+            continue
+        if n.is_source:   # capacity: the same in every scenario
+            m.addConstr(gp.quicksum(x[k, i] for k, i in comms.items() if k[0] == s) <= cap,
                         name=f"supply[{s}]")
+        elif n.is_intermediate:   # terminal throughput: everything unloaded there
+            m.addConstr(gp.quicksum(total(i) for i in net.arcs_into((s, HUB))) <= cap,
+                        name=f"throughput[{s}]")
     for t, d in demand.items():
         m.addConstr(gp.quicksum(e for (k, tt), e in deliv.items() if tt == t) == d, name=f"demand[{t}]")
 
@@ -289,6 +317,7 @@ def solve_scenario(net: Network, scenario: str, *, as_is: bool = False, lane_pri
             breakdown["handling + terminal"] += a.cost * v
 
     built = [(s, Mode(mode)) for (s, mode) in z if z[s, mode].X > 0.5]
+    # A forced build may carry no flow; it is still paid for and reported.
     fixed = [FixedCost(s, "build", f"build {mode.value}", net.modes[(s, mode.value)].build_cost)
              for s, mode in built]
     routes = _routes(net, flow, comms, prices)
@@ -311,14 +340,19 @@ def _fix_to_current(net: Network, scenario: str, x, comms: dict[Commodity, int])
     """Allow only XOM's current lanes, each at its volume x the scenario multiplier."""
     k_scen = config.SCENARIO_MULTIPLIERS[scenario]
     lanes = {(a.tail[0], a.head[0], a.mode): i for i, a in enumerate(net.arcs) if a.kind is ArcKind.TRANSPORT}
+
+    def arc(tail: NodeKey, head: NodeKey) -> int:
+        return next(i for i in net.arcs_out_of(tail) if net.arcs[i].head == head)
+
     keep: dict[tuple[Commodity, int], float | None] = {}
     for (s, t, mode), lane in net.current.items():
         k = (s, mode.value)
-        transport = lanes[(s, t, mode)]
-        unload = next(i for i in net.arcs_out_of((t, mode.value)) if net.arcs[i].kind is ArcKind.UNLOAD)
         keep[(k, comms[k])] = None
-        keep[(k, unload)] = None
-        keep[(k, transport)] = lane.dst_per_yr * k_scen
+        for j, (a, b, leg_mode) in enumerate(lane.path):
+            keep[(k, lanes[(a, b, leg_mode)])] = lane.dst_per_yr * k_scen
+            keep[(k, arc((b, leg_mode.value), (b, HUB)))] = None           # unload at b
+            if j + 1 < len(lane.path):                                     # reload at the terminal
+                keep[(k, arc((b, HUB), (b, lane.path[j + 1][2].value)))] = None
     for key, var in x.items():
         if key not in keep:
             var.UB = 0.0
@@ -365,9 +399,14 @@ def _routes(net: Network, flow: dict[tuple[Commodity, int], float], comms: dict[
             supplier=k[0], sink=sink, legs=legs, dst=dst, product=prices[k, sink],
             line_haul=sum(a.cost for a in arcs if a.kind is ArcKind.TRANSPORT),
             handling=sum(a.cost for a in arcs if a.kind is not ArcKind.TRANSPORT),
-            current=len(legs) == 1 and (k[0], sink, legs[0][2]) in net.current,
+            current=_is_current(net, k[0], sink, legs),
         ))
     return sorted(routes, key=lambda r: (r.sink, -r.dst))
+
+
+def _is_current(net: Network, supplier: str, sink: str, legs: tuple) -> bool:
+    lane = net.current.get((supplier, sink, legs[0][2])) if legs else None
+    return lane is not None and lane.path == legs
 
 
 def _landed(routes: list[Route]) -> dict[str, tuple[float, float]]:

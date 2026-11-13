@@ -185,8 +185,10 @@ def load_current_flows(path: str | Path) -> dict[LaneKey, CurrentLane]:
     """Read XOM's current network (config.CURRENT_FLOWS_FILE).
 
     Columns: supplier, sink, mode, dst_per_yr, price_usd_per_dst, source,
-    notes. One row per (supplier, sink, mode). Returns {} when the file does
-    not exist. Names are checked against the sites in network.build_network.
+    notes, and optionally via + arrival_mode for a lane through a terminal
+    (`mode` is then the mode into the terminal). One row per (supplier,
+    sink, mode). Returns {} when the file does not exist. Names are checked
+    against the sites in network.build_network.
     """
     path = Path(path)
     if not path.exists():
@@ -205,11 +207,22 @@ def load_current_flows(path: str | Path) -> dict[LaneKey, CurrentLane]:
         except ValueError as exc:
             raise ValueError(f"{where}: unknown mode {row['mode']!r}; "
                              f"expected one of {[m.value for m in Mode]}.") from exc
+        via = row.get("via")
+        via = None if via is None or pd.isna(via) or not str(via).strip() else str(via).strip()
+        arrival = row.get("arrival_mode")
+        arrival = None if arrival is None or pd.isna(arrival) or not str(arrival).strip() else arrival
+        if (via is None) != (arrival is None):
+            raise ValueError(f"{where}: give both via and arrival_mode, or neither.")
+        try:
+            arrival = None if arrival is None else Mode(str(arrival).strip().lower())
+        except ValueError as exc:
+            raise ValueError(f"{where}: unknown arrival_mode {row['arrival_mode']!r}.") from exc
         lane = CurrentLane(str(row["supplier"]).strip(), str(row["sink"]).strip(), mode,
                            float(row["dst_per_yr"]), float(row["price_usd_per_dst"]),
-                           "" if pd.isna(row.get("source")) else str(row["source"]).strip())
-        if lane.dst_per_yr <= 0 or lane.price < 0:
-            raise ValueError(f"{where}: dst_per_yr must be > 0 and price_usd_per_dst >= 0.")
+                           "" if pd.isna(row.get("source")) else str(row["source"]).strip(),
+                           via, arrival)
+        if lane.dst_per_yr < 0 or lane.price < 0:
+            raise ValueError(f"{where}: dst_per_yr and price_usd_per_dst must be >= 0.")
         key = (lane.supplier, lane.sink, mode)
         if key in out:
             raise ValueError(f"{where}: duplicate lane {lane.supplier!r} -> {lane.sink!r} [{mode.value}].")

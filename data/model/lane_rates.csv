@@ -1,2 +1,6 @@
 origin,destination,mode,usd_per_mt,weight_basis,source,notes
 China export (Qingdao),Univar North Vancouver,ocean,145,wet,D19,"Bulk chemical tanker, ~5,000 t parcel, bunker included. Low 115, high 185. Insurance (~$0.5/wet MT) excluded"
+Olin Plaquemine Plant,Olin Lemont Terminal,barge,19.40,wet,D22,Gulf-to-Chicago barge implied by XOM's $450/DST at the Lemont terminal (X8): 0.396 x the Kirby-tariff formula
+Olin Plaquemine Plant,IMTT Lemont,barge,19.40,wet,D22,Gulf-to-Chicago barge implied by XOM's $450/DST at the Lemont terminal (X8): 0.396 x the Kirby-tariff formula
+Covestro Baytown Industrial Complex,Olin Lemont Terminal,barge,23.22,wet,D22,Gulf-to-Chicago barge implied by XOM's $450/DST at the Lemont terminal (X8): 0.396 x the Kirby-tariff formula
+Covestro Baytown Industrial Complex,IMTT Lemont,barge,23.22,wet,D22,Gulf-to-Chicago barge implied by XOM's $450/DST at the Lemont terminal (X8): 0.396 x the Kirby-tariff formula

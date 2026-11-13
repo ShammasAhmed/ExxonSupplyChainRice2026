@@ -163,18 +163,21 @@ def _check_current(net: Network) -> None:
     if not net.current:
         return
     lanes = net.lanes
-    for (s, t, mode), lane in net.current.items():
+    for (s, t, _), lane in net.current.items():
         if s not in net.sites or not net.sites[s].is_source:
             raise ValueError(f"Current lane supplier {s!r} is not a source in sites.csv.")
         if t not in net.sites or not net.sites[t].is_sink:
             raise ValueError(f"Current lane sink {t!r} is not a sink in sites.csv.")
-        if (s, t, mode) not in lanes:
-            raise ValueError(f"Current lane {s!r} -> {t!r} [{mode.value}] is not in the network "
-                             f"(check modes.csv has {mode.value} at both sites).")
-        for site in (s, t):
-            if not net.modes[(site, mode.value)].existing:
-                raise ValueError(f"Current lane {s!r} -> {t!r} uses {mode.value} at {site!r}, "
-                                 f"which modes.csv lists as a candidate, not existing.")
+        if lane.via is not None and (lane.via not in net.sites or not net.sites[lane.via].is_intermediate):
+            raise ValueError(f"Current lane {s!r} -> {t!r}: via {lane.via!r} is not an intermediate in sites.csv.")
+        for a, b, mode in lane.path:
+            if (a, b, mode) not in lanes:
+                raise ValueError(f"Current lane leg {a!r} -> {b!r} [{mode.value}] is not in the network "
+                                 f"(check modes.csv has {mode.value} at both sites).")
+            for site in (a, b):
+                if not net.modes[(site, mode.value)].existing:
+                    raise ValueError(f"Current lane leg {a!r} -> {b!r} uses {mode.value} at {site!r}, "
+                                     f"which modes.csv lists as a candidate, not existing.")
     for t, n in net.sites.items():
         if not n.is_sink:
             continue

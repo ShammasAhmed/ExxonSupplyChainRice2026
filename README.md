@@ -161,9 +161,12 @@ One min-cost-flow MILP per scenario, solved with Gurobi (`model.py`):
     mode's operating burden falls on the site (XOM 10/07: sites don't want
     to switch modes back and forth). A lane moving to a mode its site
     already uses (Baytown truck -> barge) pays nothing.
-- **Intermediates** (IMTT Lemont in Chicago, Univar North Vancouver, CN
-  railheads for Kearl and Cold Lake) let product change mode. Each ton through
-  one pays unload + load handling plus the site's terminal fee.
+- **Intermediates** (the Olin Lemont Terminal and IMTT Lemont in Chicago,
+  Univar North Vancouver, CN railheads for Kearl and Cold Lake) let product
+  change mode. Each ton through one pays unload + load handling plus the
+  site's terminal fee. A current lane can pass through one
+  (`current_flows.csv` columns `via` and `arrival_mode`): Joliet's supply is
+  Plaquemine -barge-> Olin Lemont Terminal -truck-> Joliet.
 - **Constraints:** sources ship at most their supply cap (producers and
   China are uncapped; terminals and distributors get 1.25x today's volume); sinks get exactly their
   demand; optional per-mode capacity and minimum demand share from
@@ -204,7 +207,7 @@ them changes the results.
 | `sites.csv` | 11 suppliers (10 in the US and Canada, 1 China export node), 4 intermediate hubs and 10 EM sites: role, location, base-scenario volume (DST/yr), product price ($/DST, sources) and terminal fee ($/wet MT, intermediates). `notes` records unit conversions and sources. |
 | `modes.csv` | Modes each site has: `existing`, or `candidate` with an annualized build cost. Optional capacity and minimum share. Built from EM's caustic model data sheet. |
 | `lane_distances.csv` | Routed miles per lane, written by `build_distances.py`: truck on OpenStreetMap highways, rail on Class 1 lines, barge on the USACE National Waterway Network, ocean on scgraph's marnet sea lanes. |
-| `lane_rates.csv` | Quoted line-haul rates per lane. Holds the China -> Vancouver ocean rate; no XOM quotes yet. |
+| `lane_rates.csv` | Quoted line-haul rates per lane: the China -> Vancouver ocean rate, and Gulf -> Lemont barge rates implied by XOM's $450/DST terminal price (D22). |
 | `current_flows.csv` | XOM's current network from its 10/07 sheet: supplier, XOM site, mode, volume (DST/yr) and the price XOM pays on that lane. Canadian rows converted from DMT. |
 
 **Reference data** (`data/reference/`): research behind the numbers. The model
@@ -229,6 +232,9 @@ does not read these; only the rate-check workbook does.
 | `gap.py` | As-is vs. optimal, site by site and route by route. |
 | `main.py` | Runs all scenarios, prints results and draws maps. |
 | `visualize.py` | Folium map rendering (HTML + PNG). |
+| `build_webapp_data.py` | Solves every webapp scenario (18,816 runs, ~2 min on 8 cores) and writes `webapp/data/app_data.js`. |
+| `webapp/` | Static scenario explorer: open `webapp/index.html` in a browser. Data format in `webapp/DATA_SCHEMA.md`. |
+| `scripts/build_route_geometry.py` | Routed lane shapes for the webapp map (`webapp/data/geometry.js`). |
 | `sensitivity.py`, `export_rate_check.py`, `build_distances.py` | See [Quickstart](#quickstart). |
 | `scripts/cfs_circuity.py`, `scripts/puws_caustic.py` | One-off scripts that derived the circuity factors and the rail rate fit from public datasets (download links are in each file). |
 
@@ -238,8 +244,8 @@ does not read these; only the rate-check workbook does.
 
 - **Supply caps.** Producers and China are uncapped, and terminals and
   distributors can grow 25% over today's volume (a team assumption, A4).
-  The Lemont terminal sits at that cap in the optimum, so the cap, not cost,
-  decides how much Chicago supplies.
+  The Olin Lemont Terminal's throughput is capped the same way (1.25 x
+  Joliet's 19,260 DST/yr); IMTT Lemont is uncapped.
 - **Prices on new lanes.** A supplier serving a new site, or moving a lane to
   another mode, gets XOM's price for that kind of shipment (e.g. Baytown's
   truck volume moving to barge gets Covestro's $380 barge price). That price
@@ -254,8 +260,11 @@ does not read these; only the rate-check workbook does.
   Lake railhead, and the IMTT Lemont truck rack are unconfirmed; coordinates
   for IMTT Lemont and CN Lynton are approximate.
 - **Who runs the Lemont terminal.** XOM's sheet says Joliet buys from WLK
-  (Westlake) at Lemont. `sites.csv` has one Lemont source, at Olin's site
-  (the former K.A. Steel site, 15185 Main St; barge, railcar and truck).
+  (Westlake) at Lemont, a terminal fed from Plaquemine or Baytown. The model
+  has it as the Olin Lemont Terminal, an intermediate at Olin's site (the
+  former K.A. Steel site, 15185 Main St; barge, railcar and truck). The
+  inbound barge rate is set so Plaquemine product reaches it at XOM's $450/DST
+  (D22): 0.40x our tariff, which also makes Chicago cheaper for Canada.
   The team's call list also has Westlake at 13589 Main St, Lemont, and on W.
   Durkee Rd, Channahon (tank truck). Those aren't in the model yet. If Joliet's
   supplier is the truck-only Westlake site, a move to rail also means a new

@@ -6,9 +6,9 @@ Olin Plaquemine Plant,truck,existing,,,,Ships to Baton Rouge by truck
 Covestro Baytown Industrial Complex,barge,existing,,,,Ships to Baytown and Beaumont by barge
 Covestro Baytown Industrial Complex,truck,existing,,,,Ships to Baytown by truck
 Covestro Baytown Industrial Complex,rail,existing,,,,Ships to Beaumont by railcar
-"K.A. Steel Chemicals Inc, Olin Chlor Alkali",truck,existing,,,,Ships to Joliet by truck (sponsor lists supplier as WLK)
-"K.A. Steel Chemicals Inc, Olin Chlor Alkali",barge,existing,,,,INFERRED: terminal is resupplied from Plaquemine/Baytown; confirm mode with EM
-"K.A. Steel Chemicals Inc, Olin Chlor Alkali",rail,existing,,,,"Olin lists Lemont distribution capabilities as Barge, Railcar, Truck (olinchloralkali.com/about-us/locations); serving railroad unconfirmed"
+Olin Lemont Terminal,truck,existing,,,,Ships to Joliet by truck (sponsor lists supplier as WLK)
+Olin Lemont Terminal,barge,existing,,,,INFERRED: terminal is resupplied from Plaquemine/Baytown; confirm mode with EM
+Olin Lemont Terminal,rail,existing,,,,"Olin lists Lemont distribution capabilities as Barge, Railcar, Truck (olinchloralkali.com/about-us/locations); serving railroad unconfirmed"
 Brenntag Edmonton,truck,existing,,,,Ships to Strathcona by truck
 Quadra Toronto,truck,existing,,,,Ships to Nanticoke by truck
 Brenntag Toronto,truck,existing,,,,Ships to Sarnia by truck
