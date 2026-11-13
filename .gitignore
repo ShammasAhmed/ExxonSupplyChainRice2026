@@ -11,3 +11,5 @@ network_map.png
 
 # Claude Code settings, skills and state (per person)
 .claude/
+
+.DS_Store
