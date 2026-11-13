@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 import config
-from node import LaneDistance, LaneKey, LaneRate, Mode, Node, NodeCategory, SiteMode
+from node import CurrentLane, LaneDistance, LaneKey, LaneRate, Mode, Node, NodeCategory, SiteMode
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +178,42 @@ def load_lane_rates(path: str | Path) -> dict[LaneKey, LaneRate]:
         if basis not in ("dry", "wet"):
             raise ValueError(f"{where}: weight_basis must be dry/wet, got {basis!r}.")
         out[key] = LaneRate(rate, basis, str(row.get("source", "")).strip())
+    return out
+
+
+def load_current_flows(path: str | Path) -> dict[LaneKey, CurrentLane]:
+    """Read XOM's current network (config.CURRENT_FLOWS_FILE).
+
+    Columns: supplier, sink, mode, dst_per_yr, price_usd_per_dst, source,
+    notes. One row per (supplier, sink, mode). Returns {} when the file does
+    not exist. Names are checked against the sites in network.build_network.
+    """
+    path = Path(path)
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path, skipinitialspace=True).dropna(how="all")
+    df.columns = [str(c).strip().lower() for c in df.columns]
+    missing = [c for c in ("supplier", "sink", "mode", "dst_per_yr", "price_usd_per_dst") if c not in df.columns]
+    if missing:
+        raise ValueError(f"{path.name}: missing columns {missing}.")
+
+    out: dict[LaneKey, CurrentLane] = {}
+    for idx, row in df.iterrows():
+        where = f"{path.name} row {idx + 2}"
+        try:
+            mode = Mode(str(row["mode"]).strip().lower())
+        except ValueError as exc:
+            raise ValueError(f"{where}: unknown mode {row['mode']!r}; "
+                             f"expected one of {[m.value for m in Mode]}.") from exc
+        lane = CurrentLane(str(row["supplier"]).strip(), str(row["sink"]).strip(), mode,
+                           float(row["dst_per_yr"]), float(row["price_usd_per_dst"]),
+                           "" if pd.isna(row.get("source")) else str(row["source"]).strip())
+        if lane.dst_per_yr <= 0 or lane.price < 0:
+            raise ValueError(f"{where}: dst_per_yr must be > 0 and price_usd_per_dst >= 0.")
+        key = (lane.supplier, lane.sink, mode)
+        if key in out:
+            raise ValueError(f"{where}: duplicate lane {lane.supplier!r} -> {lane.sink!r} [{mode.value}].")
+        out[key] = lane
     return out
 
 

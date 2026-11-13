@@ -74,6 +74,22 @@ LaneKey = tuple[str, str, Mode]   # (origin site, destination site, mode)
 
 
 @dataclass(frozen=True, slots=True)
+class CurrentLane:
+    """One lane of XOM's current network (a row of config.CURRENT_FLOWS_FILE).
+
+    XOM buys dst_per_yr (base scenario) from `supplier`, delivered to `sink`
+    by `mode`, at `price` ($ per DST, ex freight).
+    """
+
+    supplier: str
+    sink: str
+    mode: Mode
+    dst_per_yr: float
+    price: float
+    source: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class Node:
     """A location in the supply chain network.
 

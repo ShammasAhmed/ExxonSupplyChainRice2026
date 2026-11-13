@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 
 import config
-from loader import VOLUME_UNIT, load_nodes, load_site_modes
+from loader import VOLUME_UNIT, load_current_flows, load_nodes, load_site_modes
 from model import solve_scenario
 from network import build_network
 from node import Node, SiteMode
@@ -41,12 +41,17 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sites", default=config.SITES_FILE)
     ap.add_argument("--modes", default=config.MODES_FILE)
+    ap.add_argument("--supplier-switch-cost", type=float, default=None,
+                    help=f"$/yr per new (supplier, site) pair (default {config.SUPPLIER_SWITCH_USD_PER_YR:,.0f})")
+    ap.add_argument("--mode-switch-cost", type=float, default=None,
+                    help=f"$/yr per new (site, mode) (default {config.MODE_SWITCH_USD_PER_YR:,.0f})")
     ap.add_argument("--out", default=str(config.OUTPUT_DIR))
     args = ap.parse_args()
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     nodes, site_modes = apply_exclusions(load_nodes(args.sites), load_site_modes(args.modes))
-    net = build_network(nodes, site_modes)
+    net = build_network(nodes, site_modes, current=load_current_flows(config.CURRENT_FLOWS_FILE))
+    switch = dict(supplier_switch_cost=args.supplier_switch_cost, mode_switch_cost=args.mode_switch_cost)
     print(f"{len(net.sites)} sites, {len(net.modes)} site-modes "
           f"({len(net.candidates)} candidates to build), {len(net.arcs)} arcs")
     bases = [a.basis for a in net.lanes.values()]
@@ -58,21 +63,28 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     for scenario in config.SCENARIOS:
-        sol = solve_scenario(net, scenario)
+        sol = solve_scenario(net, scenario, **switch)
         if sol.status != "OPTIMAL":
             print(f"\n[{scenario}] {sol.status}: demand cannot be met with the available supply/modes.")
             continue
 
         print(f"\n[{scenario}] OPTIMAL  delivered={sol.total_flow:,.0f} {VOLUME_UNIT}  "
-              f"total=${sol.objective_usd:,.0f}/yr (${sol.avg_cost:.2f}/ton)  lanes used={len(sol.flows)}")
-        print("   " + "  ".join(f"{k}=${v:,.0f}" for k, v in sol.cost_breakdown.items()))
-        for site, mode in sol.built:
-            print(f"   BUILD {mode.value} at {site} (${net.modes[(site, mode.value)].build_cost:,.0f}/yr)")
+              f"total=${sol.objective_usd:,.0f}/yr (${sol.avg_cost:.2f}/ton)  routes={len(sol.routes)}")
+        if net.current:
+            as_is = solve_scenario(net, scenario, as_is=True, **switch)
+            if as_is.status == "OPTIMAL":
+                print(f"   XOM's current network: ${as_is.objective_usd:,.0f}/yr, so the optimum saves "
+                      f"${as_is.objective_usd - sol.objective_usd:,.0f}/yr (site by site: python gap.py)")
+        print("   " + "  ".join(f"{k}=${v:,.0f}" for k, v in sol.cost_breakdown.items() if v))
+        for f in sol.fixed:
+            if f.usd:
+                print(f"   {f.kind.upper()} at {f.site}: {f.detail} (${f.usd:,.0f}/yr)")
+        for r in sorted(sol.routes, key=lambda r: -r.dst):
+            print(f"   {r.dst:>10,.0f}  {'*' if r.current else ' '} {r.label}   (${r.landed:,.2f}/ton landed: "
+                  f"${r.product:,.2f} product + ${r.line_haul + r.handling:,.2f} logistics)")
+        if net.current:
+            print("   (* = one of XOM's current lanes)")
         lanes = net.lanes
-        for (s, t, mode), v in sorted(sol.flows.items(), key=lambda kv: -kv[1]):
-            arc = lanes[(s, t, mode)]
-            print(f"   {v:>10,.0f}  {s}  ->  {t}  [{mode.value}]   "
-                  f"(${arc.cost:.2f}/ton, {arc.miles:,.0f} mi, {arc.basis.value})")
 
         title = f"Caustic soda flows: {scenario.capitalize()} scenario ({VOLUME_UNIT})"
         for ext in ("html", "png"):

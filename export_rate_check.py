@@ -8,7 +8,7 @@ Sheets:
     Assumptions        rate inputs (blue = input); every cost below is a
                        live formula on these cells, so XOM can edit a rate and
                        see every lane update
-    Current lanes      lanes the model uses today (base scenario)
+    Current lanes      XOM's current lanes (10/07 sheet, base volumes)
     Rail lanes         existing and candidate rail lanes, with serving railroads,
                        likely route and interchanges (config.RAIL_LANES_FILE)
     Chicago hub        Gulf Coast -> Chicago (IMTT Lemont) -> Canada vs. direct rail,
@@ -44,9 +44,8 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 import config
-from loader import load_nodes, load_site_modes
+from loader import load_current_flows, load_nodes, load_site_modes
 from main import apply_exclusions
-from model import solve_scenario
 from network import build_network
 from routing import lane_distance
 
@@ -95,15 +94,15 @@ def main() -> None:
 
     nodes, site_modes = apply_exclusions(load_nodes(config.SITES_FILE), load_site_modes(config.MODES_FILE))
     sites = {n.name: n for n in nodes}
-    sol = solve_scenario(build_network(nodes, site_modes), "base")
-    if sol.status != "OPTIMAL":
-        raise SystemExit(f"Base scenario is {sol.status}; nothing to export.")
+    current = build_network(nodes, site_modes, current=load_current_flows(config.CURRENT_FLOWS_FILE)).current
+    if not current:
+        raise SystemExit(f"{config.CURRENT_FLOWS_FILE.name} is missing or empty; nothing to export.")
 
     wb = Workbook()
     wb.remove(wb.active)
     read_me(wb.create_sheet("Read me"))
     refs = assumptions(wb.create_sheet("Assumptions"))
-    current_lanes(wb.create_sheet("Current lanes"), sol, sites, refs)
+    current_lanes(wb.create_sheet("Current lanes"), current, sites, refs)
     rail_df = pd.read_csv(config.RAIL_LANES_FILE)
     rail_lanes(wb.create_sheet("Rail lanes"), rail_df, refs)
     chicago_hub(wb.create_sheet("Chicago hub"), rail_df, refs)
@@ -121,7 +120,7 @@ def main() -> None:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out)
-    print(f"Wrote {out} ({len(sol.flows)} current lanes, {len(rail_df)} rail lanes).")
+    print(f"Wrote {out} ({len(current)} current lanes, {len(rail_df)} rail lanes).")
 
 
 # --- sheets --------------------------------------------------------------
@@ -275,13 +274,15 @@ MODE_SOURCES = {
 }
 
 
-def current_lanes(ws, sol, sites, refs) -> None:
+def current_lanes(ws, current, sites, refs) -> None:
+    """XOM's current lanes (CURRENT_FLOWS_FILE, from XOM's 10/07 sheet), not the model's optimum."""
     lanes = []
-    for (a, b, mode), dst in sorted(sol.flows.items(), key=lambda kv: (kv[0][2].value, kv[0][0])):
+    for (a, b, mode), lane in sorted(current.items(), key=lambda kv: (kv[0][2].value, kv[0][0])):
         d = lane_distance(sites[a], sites[b], mode)
         lanes.append((a, b, mode.value, round(d.miles, 1), round(d.upstream_miles, 1),
-                      round(dst * config.METRIC_TONS_PER_SHORT_TON)))
-    end = lane_table(ws, "Lanes the model uses today (base scenario), sourced costs", lanes, refs, "CurrentLanes")
+                      round(lane.dst_per_yr * config.METRIC_TONS_PER_SHORT_TON)))
+    end = lane_table(ws, "XOM's current lanes (10/07 sheet, base volumes), sourced costs", lanes, refs,
+                     "CurrentLanes")
     note_row(ws, end + 1, "Barge has no per-load figure: barges carry ~1,500+ MT and pricing depends on tow size.")
 
 

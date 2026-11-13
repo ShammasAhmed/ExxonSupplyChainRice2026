@@ -90,6 +90,7 @@ Other scripts:
 
 | Command | What it does |
 | --- | --- |
+| `python gap.py --supplier-switch-cost 250000 --mode-switch-cost 250000` | Prices XOM's current network (`data/model/current_flows.csv`) and the optimum on the same costs, and writes the gap site by site (`output/gap_sites_<scenario>.csv`) and route by route (`output/gap_lanes_<scenario>.csv`). Switch costs default to 0. |
 | `python export_rate_check.py` | Writes `output/XOM_rate_check.xlsx`, the workbook XOM uses to check our freight rates. Every cost is a live formula on the rate inputs. It also has the rail lanes, a Chicago hub comparison and the source of every number. |
 | `python sensitivity.py --mode rail --cross-border --multipliers 0.8 1 1.2 1.5` | Re-solves every scenario with one mode's line-haul rates scaled. `--cross-border` scales only US <-> Canada lanes. Writes `output/sensitivity_<scope>.csv`. |
 | `python build_distances.py` | Recomputes routed miles into `data/model/lane_distances.csv`. Only needed after adding sites or `modes.csv` rows (`--modes barge` redoes one mode). Needs internet; the waterway network is cached in `.cache/`. |
@@ -107,9 +108,17 @@ Common changes:
   terminal, distributor or export) in `sites.csv`, and
   `SUPPLY_CAP_MULTIPLIER` in `config.py` sets its cap as a multiple of
   today's volume (`None` = uncapped). Caps don't change with the scenario.
-- **Change a product price or terminal fee:** edit `price_usd_per_dst`
-  (required for sources) or `terminal_fee_usd_per_wet_mt` (intermediates
-  only) in `data/model/sites.csv`.
+- **Change a product price or terminal fee:** a current supplier's prices
+  are per lane in `data/model/current_flows.csv`. `price_usd_per_dst` in
+  `data/model/sites.csv` (required for sources) is used only for suppliers
+  XOM doesn't buy from today (rule under "How the model works").
+  `terminal_fee_usd_per_wet_mt` applies to intermediates only.
+- **Change XOM's current network:** edit `data/model/current_flows.csv` (one
+  row per supplier, XOM site and mode, from XOM's 10/07 sheet). Each site's
+  rows must add up to its base demand in `sites.csv`.
+- **Turn on switching costs:** `SUPPLIER_SWITCH_USD_PER_YR` and
+  `MODE_SWITCH_USD_PER_YR` in `config.py`, or `--supplier-switch-cost` /
+  `--mode-switch-cost` on `main.py` and `gap.py`.
 - **Change a rate:** edit `MODE_PARAMS` in `config.py`, and cite a row in
   `data/reference/rate_sources.csv`.
 - **Use a quoted rate for one lane:** add a row to `data/model/lane_rates.csv`.
@@ -126,9 +135,32 @@ One min-cost-flow MILP per scenario, solved with Gurobi (`model.py`):
   transport mode it has. Load/unload arcs between the hub and its mode nodes
   carry handling cost, and transport arcs between sites carry line-haul cost.
   This way, changing mode at a terminal costs a second round of handling.
-- **Objective:** minimize total landed cost in $/yr: product price at each
-  source (ex freight) + line haul + handling + terminal fees at intermediates
-  + annualized build cost of candidate modes.
+- **Flow tracks its origin:** flow is split by where it was loaded (supplier
+  and the mode it leaves by), so the model knows which supplier serves which
+  XOM site even through any number of terminals. Its size grows with
+  suppliers x arcs, not with the number of possible routes. After the solve,
+  each supplier's flow is split into routes (supplier -> terminals -> site)
+  for reporting.
+- **Objective:** minimize total landed cost in $/yr: product price + line
+  haul + handling + terminal fees at intermediates + annualized build cost of
+  candidate modes + switching costs.
+- **Product price per lane:** XOM's prices differ by lane (Covestro: $380 by
+  barge to Baytown, $450 by truck). A delivery from supplier s, leaving by
+  mode m, to site t pays (1) XOM's price for that lane in `current_flows.csv`,
+  else (2) XOM's volume-weighted price for what s ships by m today, else (3)
+  `price_usd_per_dst` in `sites.csv`.
+- **As-is vs. optimal:** the same model with flows fixed to XOM's current
+  lanes (`current_flows.csv`, scaled to the scenario) prices today's network.
+  The difference is the gap (`gap.py`).
+- **Switching costs** (`config.py`, default 0, team assumptions A5 and A6):
+  - *Supplier switch:* charged once per (supplier, XOM site) pair that
+    isn't in today's network. It's per pair because supplier qualification,
+    contracts and receiving checks happen site by site.
+  - *Mode switch:* charged once per (XOM site, arrival mode) the site doesn't
+    receive by today, on top of any build cost. It's per site because a new
+    mode's operating burden falls on the site (XOM 10/07: sites don't want
+    to switch modes back and forth). A lane moving to a mode its site
+    already uses (Baytown truck -> barge) pays nothing.
 - **Intermediates** (IMTT Lemont in Chicago, Univar North Vancouver, CN
   railheads for Kearl and Cold Lake) let product change mode. Each ton through
   one pays unload + load handling plus the site's terminal fee.
@@ -136,7 +168,8 @@ One min-cost-flow MILP per scenario, solved with Gurobi (`model.py`):
   China are uncapped; terminals and distributors get 1.25x today's volume); sinks get exactly their
   demand; optional per-mode capacity and minimum demand share from
   `modes.csv`; a candidate mode carries flow only if the model builds it
-  (binary).
+  (binary); a new supplier pair or site mode carries flow only if its switch
+  is paid (binary, only when the switch cost is above 0).
 - **Line haul** (`routing.py`): a quoted rate from `lane_rates.csv` if there
   is one, else fixed $/ton + $/ton-mile x routed miles. Ocean has no formula,
   so an ocean lane exists only if it is quoted. Barge miles against
@@ -172,6 +205,7 @@ them changes the results.
 | `modes.csv` | Modes each site has: `existing`, or `candidate` with an annualized build cost. Optional capacity and minimum share. Built from EM's caustic model data sheet. |
 | `lane_distances.csv` | Routed miles per lane, written by `build_distances.py`: truck on OpenStreetMap highways, rail on Class 1 lines, barge on the USACE National Waterway Network, ocean on scgraph's marnet sea lanes. |
 | `lane_rates.csv` | Quoted line-haul rates per lane. Holds the China -> Vancouver ocean rate; no XOM quotes yet. |
+| `current_flows.csv` | XOM's current network from its 10/07 sheet: supplier, XOM site, mode, volume (DST/yr) and the price XOM pays on that lane. Canadian rows converted from DMT. |
 
 **Reference data** (`data/reference/`): research behind the numbers. The model
 does not read these; only the rate-check workbook does.
@@ -187,11 +221,12 @@ does not read these; only the rate-check workbook does.
 
 | File | Role |
 | --- | --- |
-| `config.py` | Every setting: all file paths, scenario multipliers, rates, solution strength, handling cost, excluded sites and lanes. |
+| `config.py` | Every setting: all file paths, scenario multipliers, supply caps, price rule, switching costs, rates, solution strength, handling cost, excluded sites and lanes. |
 | `loader.py`, `node.py` | Read `sites.csv`, `modes.csv` and the lane tables into `Node`, `SiteMode` and lane objects. |
 | `network.py` | Builds the hub + mode node graph and its arcs. |
 | `routing.py` | Line-haul $/ton for each lane. |
-| `model.py` | The Gurobi MILP. |
+| `model.py` | The Gurobi MILP, the as-is case, and route decomposition. |
+| `gap.py` | As-is vs. optimal, site by site and route by route. |
 | `main.py` | Runs all scenarios, prints results and draws maps. |
 | `visualize.py` | Folium map rendering (HTML + PNG). |
 | `sensitivity.py`, `export_rate_check.py`, `build_distances.py` | See [Quickstart](#quickstart). |
@@ -199,24 +234,32 @@ does not read these; only the rate-check workbook does.
 
 **Outputs** go to `output/`, which is gitignored. Downloaded data is cached in `.cache/`, also gitignored.
 
-## Status and open gaps (as of 2026-11-10)
+## Status and open gaps (as of 2026-11-11)
 
 - **Supply caps.** Producers and China are uncapped, and terminals and
   distributors can grow 25% over today's volume (a team assumption, A4).
-  With no cap, the cheapest producer wins wherever freight allows, so the
-  model moves most volume to Covestro.
-- **One price per source.** Covestro's price is a volume-weighted $401/DST,
-  but XOM pays it $450 on truck and rail lanes, so the model overstates how
-  cheaply Covestro can serve new lanes (e.g. GCGV and Alberta).
+  The Lemont terminal sits at that cap in the optimum, so the cap, not cost,
+  decides how much Chicago supplies.
+- **Prices on new lanes.** A supplier serving a new site, or moving a lane to
+  another mode, gets XOM's price for that kind of shipment (e.g. Baytown's
+  truck volume moving to barge gets Covestro's $380 barge price). That price
+  gap is a large part of the savings at Baytown and Beaumont. Confirm with
+  XOM that it reflects the mode and not something else.
+- **Switching costs are 0 by default.** Supplier and mode switch costs have
+  no source yet (A5, A6). Run `gap.py` with a few values to show how the
+  savings hold up.
 - **One China node.** It stands for coastal Shandong exporters at one FOB
   price. China -> US is not modeled (37.5% Section 301 duties).
 - **Unconfirmed plumbing.** Strathcona rail receipt, CN Vermilion as the Cold
   Lake railhead, and the IMTT Lemont truck rack are unconfirmed; coordinates
   for IMTT Lemont and CN Lynton are approximate.
 - **Who runs the Lemont terminal.** XOM's sheet says Joliet buys from WLK
-  (Westlake) at Lemont. The only public caustic terminal there is Olin's
-  (the former K.A. Steel site; barge, railcar and truck), which is what
-  `sites.csv` models. Confirm with XOM.
+  (Westlake) at Lemont. `sites.csv` has one Lemont source, at Olin's site
+  (the former K.A. Steel site, 15185 Main St; barge, railcar and truck).
+  The team's call list also has Westlake at 13589 Main St, Lemont, and on W.
+  Durkee Rd, Channahon (tank truck). Those aren't in the model yet. If Joliet's
+  supplier is the truck-only Westlake site, a move to rail also means a new
+  supplier.
 - **No XOM rate quotes.** XOM can't share contract rates, so they are
   checking our estimates in the rate-check workbook instead, and
   `data/model/lane_rates.csv` stays empty.

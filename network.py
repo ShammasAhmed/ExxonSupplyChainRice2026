@@ -21,7 +21,7 @@ from enum import Enum
 from typing import Callable, Iterable, Iterator
 
 import config
-from node import LaneKey, Mode, Node, SiteMode
+from node import CurrentLane, LaneKey, Mode, Node, SiteMode
 from routing import CostBasis, lane_cost, lane_rates
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ class Network:
     sites: dict[str, Node]
     modes: dict[NodeKey, SiteMode]      # (site, mode) -> availability row
     arcs: list[Arc]
+    current: dict[LaneKey, CurrentLane] = field(default_factory=dict)   # XOM's current network
     _in: dict[NodeKey, list[int]] = field(init=False, repr=False)
     _out: dict[NodeKey, list[int]] = field(init=False, repr=False)
 
@@ -103,13 +104,17 @@ def transport_lanes(sites: dict[str, Node], modes: Iterable[NodeKey]) -> Iterato
 
 
 def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode], *,
-                  rate_multiplier: Callable[[Node, Node, Mode], float] | None = None) -> Network:
+                  rate_multiplier: Callable[[Node, Node, Mode], float] | None = None,
+                  current: dict[LaneKey, CurrentLane] | None = None) -> Network:
     """Expand sites into hub + mode nodes and connect them.
 
     `rate_multiplier(origin, destination, mode)` scales each lane's line-haul
-    rate, for sensitivity runs (default 1 everywhere).
+    rate, for sensitivity runs (default 1 everywhere). `current` is XOM's
+    current network (loader.load_current_flows); without it the model uses
+    one price per supplier and has no as-is case or switching costs.
 
-    Raises ValueError if a Modes row names a site that is not in `nodes`.
+    Raises ValueError if a Modes row or a current lane names a site that is
+    not in `nodes`, or a current lane the network cannot carry.
     """
     sites = {n.name: n for n in nodes}
     modes: dict[NodeKey, SiteMode] = {}
@@ -147,4 +152,33 @@ def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode], *,
         logger.warning("Quoted rate %r -> %r [%s] matches no lane in the network (check names "
                        "and that both sites have the mode in the Modes table).", a, b, mode.value)
 
-    return Network(sites, modes, arcs)
+    net = Network(sites, modes, arcs, dict(current or {}))
+    _check_current(net)
+    return net
+
+
+def _check_current(net: Network) -> None:
+    """Each current lane must be a direct lane the network offers on existing
+    modes; each sink's current volume should equal its base demand."""
+    if not net.current:
+        return
+    lanes = net.lanes
+    for (s, t, mode), lane in net.current.items():
+        if s not in net.sites or not net.sites[s].is_source:
+            raise ValueError(f"Current lane supplier {s!r} is not a source in sites.csv.")
+        if t not in net.sites or not net.sites[t].is_sink:
+            raise ValueError(f"Current lane sink {t!r} is not a sink in sites.csv.")
+        if (s, t, mode) not in lanes:
+            raise ValueError(f"Current lane {s!r} -> {t!r} [{mode.value}] is not in the network "
+                             f"(check modes.csv has {mode.value} at both sites).")
+        for site in (s, t):
+            if not net.modes[(site, mode.value)].existing:
+                raise ValueError(f"Current lane {s!r} -> {t!r} uses {mode.value} at {site!r}, "
+                                 f"which modes.csv lists as a candidate, not existing.")
+    for t, n in net.sites.items():
+        if not n.is_sink:
+            continue
+        today = sum(l.dst_per_yr for l in net.current.values() if l.sink == t)
+        if abs(today - n.base) > 1e-6 * max(n.base, 1.0):
+            logger.warning("Sink %r: current lanes carry %s DST/yr but base demand is %s; "
+                           "the as-is case will be infeasible.", t, f"{today:,.0f}", f"{n.base:,.0f}")
