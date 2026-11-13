@@ -16,7 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 import config
-from loader import _US_ALIASES, load_nodes, load_site_modes
+from loader import _US_ALIASES, load_current_flows, load_nodes, load_site_modes
 from main import apply_exclusions
 from model import solve_scenario
 from network import build_network
@@ -38,6 +38,7 @@ def main() -> None:
 
     mode = Mode(args.mode)
     nodes, site_modes = apply_exclusions(load_nodes(config.SITES_FILE), load_site_modes(config.MODES_FILE))
+    current = load_current_flows(config.CURRENT_FLOWS_FILE)
 
     rows = []
     for k in args.multipliers:
@@ -45,7 +46,7 @@ def main() -> None:
             hit = m is mode and (not args.cross_border or _country(a) != _country(b))
             return k if hit else 1.0
 
-        net = build_network(nodes, site_modes, rate_multiplier=scale)
+        net = build_network(nodes, site_modes, rate_multiplier=scale, current=current)
         for scenario in config.SCENARIOS:
             sol = solve_scenario(net, scenario)
             row = dict(multiplier=k, scenario=scenario, status=sol.status,

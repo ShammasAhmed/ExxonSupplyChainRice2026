@@ -21,6 +21,11 @@ LANE_DISTANCES_FILE = MODEL_DATA_DIR / "lane_distances.csv"
 # Quoted line-haul rates ($/metric ton). A quote replaces the rate formula
 # for that lane; handling is still charged on the transfer arcs.
 LANE_RATES_FILE = MODEL_DATA_DIR / "lane_rates.csv"
+# XOM's current network, one row per (supplier, XOM site, mode) lane, from
+# XOM's 10/07 sheet (rate_sources X8): volume and the price XOM pays on that
+# lane. The model prices this network as the "as-is" case, compares it with
+# the optimum (gap.py), and uses it to decide what counts as a switch.
+CURRENT_FLOWS_FILE = MODEL_DATA_DIR / "current_flows.csv"
 
 # data/reference/: research the model does not read. Only the XOM rate-check
 # workbook (export_rate_check.py) uses these.
@@ -38,9 +43,19 @@ SITE_RAIL_FILE = REFERENCE_DATA_DIR / "site_rail_access.csv"
 OUTPUT_DIR = ROOT / "output"
 NETWORK_MAP_NAME = "network_map_{scenario}"            # main.py, + .html / .png
 SENSITIVITY_NAME = "sensitivity_{scope}.csv"           # sensitivity.py
+GAP_LANES_NAME = "gap_lanes_{scenario}.csv"            # gap.py: every lane, as-is and optimal
+GAP_SITES_NAME = "gap_sites_{scenario}.csv"            # gap.py: one row per XOM site
 RATE_CHECK_NAME = "XOM_rate_check.xlsx"                # export_rate_check.py
 SITES_MAP_NAME = "network_map"                         # visualize.py run directly, + .html / .png
 MAP_PREVIEW_FILE = OUTPUT_DIR / "_network_map_preview.html"   # visualize.plot_nodes(show=True)
+
+# Webapp (static site, no server): open WEBAPP_DIR/index.html in a browser.
+# The data files are JavaScript (window.APP_DATA / window.APP_GEOMETRY) so the
+# page also works when opened straight from disk (file://).
+WEBAPP_DIR = ROOT / "webapp"
+WEBAPP_DATA_FILE = WEBAPP_DIR / "data" / "app_data.js"          # build_webapp_data.py
+WEBAPP_GEOMETRY_FILE = WEBAPP_DIR / "data" / "geometry.js"      # scripts/build_route_geometry.py
+WEBAPP_GRID_CACHE_DIR = OUTPUT_DIR / "webapp_grid"              # per-run results, before packing
 
 # Downloaded data (git-ignored): the USACE waterway network for build_distances.py.
 CACHE_DIR = ROOT / ".cache"
@@ -70,6 +85,40 @@ SUPPLY_CAP_MULTIPLIER: dict[str, float | None] = {
     "terminal": 1.25,
     "distributor": 1.25,
 }
+
+# --- Product price -------------------------------------------------------
+# XOM's prices depend on the lane, not just the supplier (Covestro: $380 by
+# barge to Baytown, $400 by barge to Beaumont, $450 by truck or rail). The
+# price of a delivery from supplier s that leaves s by mode m, to XOM site t:
+#   1. XOM's price for that lane (s, t, m) in CURRENT_FLOWS_FILE;
+#   2. else XOM's volume-weighted price for everything s ships by m today
+#      (a new site gets the price of the same kind of shipment);
+#   3. else price_usd_per_dst in SITES_FILE (suppliers XOM does not use).
+
+# --- Switching costs -----------------------------------------------------
+# Costs of changing XOM's current network (CURRENT_FLOWS_FILE), in $/yr:
+# annualize a one-time cost over the contract or project life. Neither has a
+# source yet, so both default to 0 (no effect) and are meant to be varied
+# (main.py / gap.py --supplier-switch-cost / --mode-switch-cost).
+#
+#   supplier switch  charged once per (supplier, XOM site) pair that carries
+#                    flow but is not in CURRENT_FLOWS_FILE (team assumption
+#                    A5). Per pair, because qualifying a supplier's product,
+#                    the contract, and the site's receiving checks are done
+#                    site by site. An existing pair changing mode or route
+#                    does not pay it.
+#   mode switch      charged once per (XOM site, arrival mode) when the site
+#                    starts receiving by a mode it does not use today (team
+#                    assumption A6). Per site, because the burden of a new
+#                    mode (unloading procedures, scheduling, staffing,
+#                    safety) falls on the site; XOM said on 10/07 that sites
+#                    do not want to switch back and forth between modes. It
+#                    is on top of a candidate mode's build cost in MODES_FILE,
+#                    which pays for infrastructure only. A lane moving to a
+#                    mode its site already receives (Covestro -> Baytown,
+#                    truck to barge) does not pay it.
+SUPPLIER_SWITCH_USD_PER_YR = 0.0
+MODE_SWITCH_USD_PER_YR = 0.0
 
 # --- Transport costs -----------------------------------------------------
 # The model's volume unit is the dry short ton (DST, see loader.VOLUME_UNIT),
