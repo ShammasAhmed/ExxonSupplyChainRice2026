@@ -93,6 +93,7 @@
     idx: defaults(),
     unit: "dst",
     showBaseline: true,
+    view: "plan", // "plan" = optimized plan for the settings; "today" = XOM's current network only
     animate: !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches),
     sel: null // {type:'route', sig, site} | {type:'site', id} | {type:'node', id}
   };
@@ -112,9 +113,23 @@
   };
   CX.select = function (sel) { CX.state.sel = sel; CX.emit("select"); };
 
-  CX.current = function () {
+  CX.isToday = function () { return CX.state.view === "today"; };
+  CX.setView = function (v) {
+    if (v === CX.state.view) return;
+    CX.state.view = v;
+    CX.emit("change");
+  };
+  // The optimized run for the current settings, whatever the view.
+  CX.optimized = function () {
     var run = CX.run(CX.state.idx);
     return { run: run, plan: CX.plan(run), key: CX.key(CX.state.idx) };
+  };
+  // What the map, drawer and table show: the optimized plan, or today's network.
+  var todayRun = null;
+  CX.current = function () {
+    if (!CX.isToday()) return CX.optimized();
+    todayRun = todayRun || { plan: null, today: true, total_usd_per_yr: D.baseline.total_usd_per_yr };
+    return { run: todayRun, plan: D.baseline, key: "today" };
   };
 
   // ------------------------------------------------------------------ units & formatting

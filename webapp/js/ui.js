@@ -80,7 +80,26 @@
     $("about-close").addEventListener("click", UI.closeAbout);
     $("about-modal").addEventListener("click", function (e) { if (e.target.id === "about-modal") UI.closeAbout(); });
     $("reset-btn").addEventListener("click", function () { CX.setIdx(CX.defaults()); });
+    $("view-switch").addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-view]");
+      if (b) CX.setView(b.getAttribute("data-view"));
+    });
   };
+
+  function renderView() {
+    var today = CX.isToday();
+    $("view-switch").querySelectorAll("button[data-view]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === CX.state.view));
+    });
+    $("panel").classList.toggle("is-today", today);
+    $("today-note").hidden = !today;
+    var lb = $("lg-base");
+    if (lb) {
+      lb.disabled = today;
+      lb.closest("label").classList.toggle("is-disabled", today);
+      lb.closest("label").title = today ? "Today's network is what the map is showing" : "";
+    }
+  }
 
   // ------------------------------------------------------------------ controls
   UI.initControls = function () {
@@ -140,6 +159,7 @@
   }
 
   UI.renderControls = function () {
+    renderView();
     var idx = CX.state.idx, cur = CX.run(idx);
     CX.controls.forEach(function (c, i) {
       var id = "ctl-" + i, si = idx[i], stop = c.stops[si];
@@ -205,6 +225,8 @@
     var cur = CX.current(), run = cur.run, base = CX.D.baseline;
     var kT = $("kpi-total"), kS = $("kpi-today"), kB = $("kpi-best");
     var dem = totalDemand();
+    if (CX.isToday()) { renderTodayKPIs(kT, kS, kB, base, dem); return; }
+    eyebrow(kT, "Total landed cost"); eyebrow(kS, "vs. today's network"); eyebrow(kB, "vs. best choice");
     if (!run) {
       kT.querySelector("[data-v]").textContent = "No run";
       kT.querySelector("[data-s]").textContent = "This combination is missing from the data.";
@@ -239,6 +261,45 @@
       $("apply-best").onclick = function () { CX.setIdx(bk); };
     }
   };
+
+  function eyebrow(k, text) { k.querySelector(".eyebrow").textContent = text; }
+
+  // Today's view: the total is today's; the other two cards say what the
+  // optimizer would save with the current settings, and at best.
+  function renderTodayKPIs(kT, kS, kB, base, dem) {
+    var total = base.total_usd_per_yr;
+    eyebrow(kT, "Today's landed cost");
+    kT.className = "kpi is-total";
+    kT.querySelector("[data-v]").innerHTML = CX.usd(total) + "<small>/yr</small>";
+    kT.querySelector("[data-s]").innerHTML = '<span class="num">' + CX.perUnit(dem ? total / dem : null) + " " + esc(CX.unitSuffix()) + "</span><span class=\"muted\">average landed · " + CX.num(dem) + " DST/yr</span>";
+
+    var opt = CX.optimized().run;
+    eyebrow(kS, "Optimized plan would save");
+    if (!opt) {
+      kS.className = "kpi";
+      kS.querySelector("[data-v]").textContent = "–";
+      kS.querySelector("[data-s]").textContent = "This combination is missing from the data.";
+    } else {
+      var o = CX.savings(total - opt.total_usd_per_yr);
+      kS.className = "kpi " + (o.cls === "good" ? "is-good" : o.cls === "bad" ? "is-bad" : "");
+      kS.querySelector("[data-v]").innerHTML = '<span class="' + o.cls + '">' + o.arrow + " " + o.text + "</span><small>/yr</small>";
+      kS.querySelector("[data-s]").innerHTML = '<button type="button" class="btn btn-primary btn-sm" id="show-plan">Show plan</button><span class="muted">with the settings on the left</span>';
+      $("show-plan").onclick = function () { CX.setView("plan"); };
+    }
+
+    var best = CX.best(CX.state.idx);
+    eyebrow(kB, "Best possible saving");
+    if (!best) {
+      kB.className = "kpi";
+      kB.querySelector("[data-v]").textContent = "–";
+      kB.querySelector("[data-s]").textContent = "";
+    } else {
+      var b = CX.savings(total - best.total);
+      kB.className = "kpi " + (b.cls === "good" ? "is-good" : b.cls === "bad" ? "is-bad" : "");
+      kB.querySelector("[data-v]").innerHTML = '<span class="' + b.cls + '">' + b.arrow + " " + b.text + "</span><small>/yr</small>";
+      kB.querySelector("[data-s]").innerHTML = '<span class="muted">best network decisions for these market assumptions</span>';
+    }
+  }
 
   // ------------------------------------------------------------------ legend
   UI.initLegend = function () {

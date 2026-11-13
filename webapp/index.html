@@ -29,7 +29,15 @@
   </header>
 
   <div class="app">
-    <aside class="panel" aria-label="Scenario controls">
+    <aside class="panel" id="panel" aria-label="Scenario controls">
+      <div class="view-switch">
+        <span class="eyebrow">Show on map</span>
+        <div class="seg" role="group" aria-label="Network shown" id="view-switch">
+          <button type="button" data-view="plan" aria-pressed="true">Optimized plan</button>
+          <button type="button" data-view="today" aria-pressed="false">Today's network</button>
+        </div>
+      </div>
+      <p class="today-note" id="today-note" hidden>Showing XOM's network as it runs today. The settings below only change the optimized plan it is compared against.</p>
       <div class="panel-head">
         <span class="eyebrow">Scenario</span>
         <button class="link" id="reset-btn" type="button">Reset to defaults</button>

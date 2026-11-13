@@ -372,6 +372,7 @@
       (r.legs || []).forEach(function (l) { planUsedNodes[l.from] = 1; planUsedNodes[l.to] = 1; });
     });
     lastVol = nodeVolumes(plan);
+    M.setBaselineVisible(CX.state.showBaseline);
     refreshMarkers(plan);
     M.applySelection();
     updateOffMap();
@@ -380,7 +381,7 @@
 
   M.setBaselineVisible = function (on) {
     if (!ready) return;
-    var v = on ? "visible" : "none";
+    var v = on && !CX.isToday() ? "visible" : "none";
     map.setLayoutProperty("base-line", "visibility", v);
     map.setLayoutProperty("base-hit", "visibility", v);
   };

@@ -20,13 +20,14 @@
       var ok = idx.length === CX.controls.length && idx.every(function (v, i) { return v >= 0 && v < CX.controls[i].stops.length; });
       if (ok && CX.D.runs[out.run]) CX.state.idx = idx;
     }
+    if (out.v === "today") CX.state.view = "today";
     if (out.u && CX.UNITS.some(function (u) { return u.id === out.u; })) CX.state.unit = out.u;
   }
   var hashTimer = null;
   function writeHash() {
     clearTimeout(hashTimer);
     hashTimer = setTimeout(function () {
-      var h = "#run=" + CX.key(CX.state.idx) + (CX.state.unit !== "dst" ? "&u=" + CX.state.unit : "");
+      var h = "#run=" + CX.key(CX.state.idx) + (CX.state.unit !== "dst" ? "&u=" + CX.state.unit : "") + (CX.isToday() ? "&v=today" : "");
       if (location.hash !== h) {
         try { history.replaceState(null, "", h); } catch (e) { /* file:// in some browsers */ }
       }
