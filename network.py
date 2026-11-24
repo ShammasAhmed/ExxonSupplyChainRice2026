@@ -56,7 +56,7 @@ class Network:
     sites: dict[str, Node]
     modes: dict[NodeKey, SiteMode]      # (site, mode) -> availability row
     arcs: list[Arc]
-    current: dict[LaneKey, CurrentLane] = field(default_factory=dict)   # XOM's current network
+    current: dict[LaneKey, CurrentLane] = field(default_factory=dict)   # Standard Oil's current network
     _in: dict[NodeKey, list[int]] = field(init=False, repr=False)
     _out: dict[NodeKey, list[int]] = field(init=False, repr=False)
 
@@ -109,7 +109,7 @@ def build_network(nodes: Iterable[Node], site_modes: Iterable[SiteMode], *,
     """Expand sites into hub + mode nodes and connect them.
 
     `rate_multiplier(origin, destination, mode)` scales each lane's line-haul
-    rate, for sensitivity runs (default 1 everywhere). `current` is XOM's
+    rate, for sensitivity runs (default 1 everywhere). `current` is Standard Oil's
     current network (loader.load_current_flows); without it the model uses
     one price per supplier and has no as-is case or switching costs.
 

@@ -34,7 +34,7 @@ def load_nodes(path: str | Path) -> list[Node]:
     longitude, latitude, base_dst_per_yr, price_usd_per_dst,
     terminal_fee_usd_per_wet_mt, supplier_type, notes. For sinks, each
     scenario's demand is base_dst_per_yr x config.SCENARIO_MULTIPLIERS. For
-    sources, base_dst_per_yr is today's volume to XOM, and the supply cap is
+    sources, base_dst_per_yr is today's volume to Standard Oil, and the supply cap is
     that x config.SUPPLY_CAP_MULTIPLIER[supplier_type] in every scenario
     (supplier_type is required for sources and must be blank elsewhere).
     base_dst_per_yr may be blank only for intermediates. price_usd_per_dst (product price ex freight) is required
@@ -182,7 +182,7 @@ def load_lane_rates(path: str | Path) -> dict[LaneKey, LaneRate]:
 
 
 def load_current_flows(path: str | Path) -> dict[LaneKey, CurrentLane]:
-    """Read XOM's current network (config.CURRENT_FLOWS_FILE).
+    """Read Standard Oil's current network (config.CURRENT_FLOWS_FILE).
 
     Columns: supplier, sink, mode, dst_per_yr, price_usd_per_dst, source,
     notes, and optionally via + arrival_mode for a lane through a terminal

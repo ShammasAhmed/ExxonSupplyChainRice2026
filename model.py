@@ -1,7 +1,7 @@
 """Multimodal min-cost flow that tracks where each ton was loaded, for one scenario.
 
 Flow is split into commodities k = (supplier s, mode m it leaves s by). That
-way the model knows which supplier serves which XOM site, and how the product
+way the model knows which supplier serves which Standard Oil site, and how the product
 left the supplier, even when it passes through any number of terminals. The
 model grows with (commodities x arcs), not with the number of possible
 routes. Routes are recovered after the solve by decomposing each commodity's
@@ -27,7 +27,7 @@ flow (Solution.routes).
 
 price[k,t] follows the rule in config ("Product price"). cap(i, m) is the
 Modes-table capacity, or total demand when uncapped. With as_is=True the
-flows are fixed to XOM's current lanes (Network.current), scaled to the
+flows are fixed to Standard Oil's current lanes (Network.current), scaled to the
 scenario, so the same costs price today's network.
 
 What-if inputs (all optional, used by build_webapp_data.py): closed_sites and
@@ -57,7 +57,7 @@ Commodity = tuple[str, str]     # (supplier site, mode value it leaves by)
 
 @dataclass(frozen=True)
 class Route:
-    """One way product gets from a supplier to an XOM site in a solution."""
+    """One way product gets from a supplier to a Standard Oil site in a solution."""
 
     supplier: str
     sink: str
@@ -66,7 +66,7 @@ class Route:
     product: float                            # $/DST, price paid to the supplier
     line_haul: float                          # $/DST
     handling: float                           # $/DST, loading, unloading and terminal fees
-    current: bool = False                     # True if this is one of XOM's current lanes
+    current: bool = False                     # True if this is one of Standard Oil's current lanes
 
     @property
     def landed(self) -> float:
@@ -97,7 +97,7 @@ class Route:
 class FixedCost:
     """A yearly cost that does not scale with tons: a build or a switch."""
 
-    site: str        # the site it is charged at (an XOM site for switches)
+    site: str        # the site it is charged at (a Standard Oil site for switches)
     kind: str        # "build", "supplier switch" or "mode switch"
     detail: str
     usd: float
@@ -178,7 +178,7 @@ def solve_scenario(net: Network, scenario: str, *, as_is: bool = False, lane_pri
                    verbose: bool = False) -> Solution:
     """Solve one scenario. Switch costs default to config (0 = off).
 
-    as_is=True fixes the flows to XOM's current lanes (net.current) scaled by
+    as_is=True fixes the flows to Standard Oil's current lanes (net.current) scaled by
     the scenario multiplier; it needs net.current.
     """
     if as_is and not net.current:
@@ -337,7 +337,7 @@ def solve_scenario(net: Network, scenario: str, *, as_is: bool = False, lane_pri
 
 
 def _fix_to_current(net: Network, scenario: str, x, comms: dict[Commodity, int]) -> None:
-    """Allow only XOM's current lanes, each at its volume x the scenario multiplier."""
+    """Allow only Standard Oil's current lanes, each at its volume x the scenario multiplier."""
     k_scen = config.SCENARIO_MULTIPLIERS[scenario]
     lanes = {(a.tail[0], a.head[0], a.mode): i for i, a in enumerate(net.arcs) if a.kind is ArcKind.TRANSPORT}
 

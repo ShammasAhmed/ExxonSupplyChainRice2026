@@ -21,16 +21,16 @@ LANE_DISTANCES_FILE = MODEL_DATA_DIR / "lane_distances.csv"
 # Quoted line-haul rates ($/metric ton). A quote replaces the rate formula
 # for that lane; handling is still charged on the transfer arcs.
 LANE_RATES_FILE = MODEL_DATA_DIR / "lane_rates.csv"
-# XOM's current network, one row per (supplier, XOM site, mode) lane, from
-# XOM's 10/07 sheet (rate_sources X8): volume and the price XOM pays on that
+# Standard Oil's current network, one row per (supplier, Standard Oil site, mode) lane, from
+# Standard Oil's 10/07 sheet (rate_sources X8): volume and the price Standard Oil pays on that
 # lane. The model prices this network as the "as-is" case, compares it with
 # the optimum (gap.py), and uses it to decide what counts as a switch.
 CURRENT_FLOWS_FILE = MODEL_DATA_DIR / "current_flows.csv"
 
-# data/reference/: research the model does not read. Only the XOM rate-check
+# data/reference/: research the model does not read. Only the Standard Oil rate-check
 # workbook (export_rate_check.py) uses these.
 REFERENCE_DATA_DIR = DATA_DIR / "reference"
-# Source of every rate and assumption below (ids X = XOM, D = derived, A = assumption).
+# Source of every rate and assumption below (ids X = Standard Oil, D = derived, A = assumption).
 RATE_SOURCES_FILE = REFERENCE_DATA_DIR / "rate_sources.csv"
 # Existing and candidate rail lanes: railroads, likely route, interchanges.
 RAIL_LANES_FILE = REFERENCE_DATA_DIR / "rail_lanes.csv"
@@ -44,8 +44,8 @@ OUTPUT_DIR = ROOT / "output"
 NETWORK_MAP_NAME = "network_map_{scenario}"            # main.py, + .html / .png
 SENSITIVITY_NAME = "sensitivity_{scope}.csv"           # sensitivity.py
 GAP_LANES_NAME = "gap_lanes_{scenario}.csv"            # gap.py: every lane, as-is and optimal
-GAP_SITES_NAME = "gap_sites_{scenario}.csv"            # gap.py: one row per XOM site
-RATE_CHECK_NAME = "XOM_rate_check.xlsx"                # export_rate_check.py
+GAP_SITES_NAME = "gap_sites_{scenario}.csv"            # gap.py: one row per Standard Oil site
+RATE_CHECK_NAME = "StandardOil_rate_check.xlsx"                # export_rate_check.py
 SITES_MAP_NAME = "network_map"                         # visualize.py run directly, + .html / .png
 MAP_PREVIEW_FILE = OUTPUT_DIR / "_network_map_preview.html"   # visualize.plot_nodes(show=True)
 
@@ -67,11 +67,11 @@ SCENARIO_MULTIPLIERS = {"bear": 0.8, "base": 1.0, "bull": 1.2}
 SCENARIOS = tuple(SCENARIO_MULTIPLIERS)
 
 # --- Supply --------------------------------------------------------------
-# A source's base_dst_per_yr is what it ships to XOM today. Its supply cap is
+# A source's base_dst_per_yr is what it ships to Standard Oil today. Its supply cap is
 # that volume x the multiplier for its supplier_type in SITES_FILE (None =
 # uncapped). Caps are capacities, so they do not change with the demand
 # scenario.
-#   producer     chlor-alkali plants make 0.3-3 Mt/yr, far above XOM's total
+#   producer     chlor-alkali plants make 0.3-3 Mt/yr, far above Standard Oil's total
 #                demand (~0.24 Mt/yr in bull), so any cap above that behaves
 #                like no cap. Set a number (e.g. 2.0) to limit how much one
 #                producer can win.
@@ -87,31 +87,31 @@ SUPPLY_CAP_MULTIPLIER: dict[str, float | None] = {
 }
 
 # --- Product price -------------------------------------------------------
-# XOM's prices depend on the lane, not just the supplier (Covestro: $380 by
+# Standard Oil's prices depend on the lane, not just the supplier (Covestro: $380 by
 # barge to Baytown, $400 by barge to Beaumont, $450 by truck or rail). The
-# price of a delivery from supplier s that leaves s by mode m, to XOM site t:
-#   1. XOM's price for that lane (s, t, m) in CURRENT_FLOWS_FILE;
-#   2. else XOM's volume-weighted price for everything s ships by m today
+# price of a delivery from supplier s that leaves s by mode m, to Standard Oil site t:
+#   1. Standard Oil's price for that lane (s, t, m) in CURRENT_FLOWS_FILE;
+#   2. else Standard Oil's volume-weighted price for everything s ships by m today
 #      (a new site gets the price of the same kind of shipment);
-#   3. else price_usd_per_dst in SITES_FILE (suppliers XOM does not use).
+#   3. else price_usd_per_dst in SITES_FILE (suppliers Standard Oil does not use).
 
 # --- Switching costs -----------------------------------------------------
-# Costs of changing XOM's current network (CURRENT_FLOWS_FILE), in $/yr:
+# Costs of changing Standard Oil's current network (CURRENT_FLOWS_FILE), in $/yr:
 # annualize a one-time cost over the contract or project life. Neither has a
 # source yet, so both default to 0 (no effect) and are meant to be varied
 # (main.py / gap.py --supplier-switch-cost / --mode-switch-cost).
 #
-#   supplier switch  charged once per (supplier, XOM site) pair that carries
+#   supplier switch  charged once per (supplier, Standard Oil site) pair that carries
 #                    flow but is not in CURRENT_FLOWS_FILE (team assumption
 #                    A5). Per pair, because qualifying a supplier's product,
 #                    the contract, and the site's receiving checks are done
 #                    site by site. An existing pair changing mode or route
 #                    does not pay it.
-#   mode switch      charged once per (XOM site, arrival mode) when the site
+#   mode switch      charged once per (Standard Oil site, arrival mode) when the site
 #                    starts receiving by a mode it does not use today (team
 #                    assumption A6). Per site, because the burden of a new
 #                    mode (unloading procedures, scheduling, staffing,
-#                    safety) falls on the site; XOM said on 10/07 that sites
+#                    safety) falls on the site; Standard Oil said on 10/07 that sites
 #                    do not want to switch back and forth between modes. It
 #                    is on top of a candidate mode's build cost in MODES_FILE,
 #                    which pays for infrastructure only. A lane moving to a
@@ -127,8 +127,8 @@ MODE_SWITCH_USD_PER_YR = 0.0
 # model divides them by SOLUTION_STRENGTH to get $ per DST.
 #
 # Every number below cites a row id in RATE_SOURCES_FILE (value, unit, date,
-# URL and page for each). They are public list or benchmark rates, so XOM's
-# contract rates are likely lower (XOM's own rail quote was 0.69x the
+# URL and page for each). They are public list or benchmark rates, so Standard Oil's
+# contract rates are likely lower (Standard Oil's own rail quote was 0.69x the
 # supplier rate, rate_sources D14).
 #
 #   line haul $/ton = fixed_usd_per_ton + usd_per_ton_mile * billed miles
@@ -151,7 +151,7 @@ MODE_SWITCH_USD_PER_YR = 0.0
 #             of $6.352 (week of 10/26/2026), over 21 wet MT per load (D1-D3).
 #             min_miles reproduces the tariff's $700 flat charge up to 40 mi.
 #   rail      STB 2024 waybill fit for caustic tank cars, $2,062 + $5.014/car-mi,
-#             scaled to the ~$12,000/car supplier rate XOM gave for USGC ->
+#             scaled to the ~$12,000/car supplier rate Standard Oil gave for USGC ->
 #             Edmonton, over 84 wet MT per car (D5, D6).
 #   barge     Kirby Inland Marine Aug 2026 LMR towing tariff, per 1,420-ton
 #             barge: same-zone tow as the fixed part, the downstream rate slope
@@ -171,7 +171,7 @@ MODE_PARAMS = {
     "rail":     dict(circuity=1.45, fixed_usd_per_ton=18.66, usd_per_ton_mile=0.04537, upstream_factor=1.0,
                      min_miles=0,  max_miles=None),
     "barge":    dict(circuity=1.60, fixed_usd_per_ton=1.863, usd_per_ton_mile=0.0290, upstream_factor=1.173,
-                     min_miles=30, max_miles=None),   # min_miles: XOM, flat within ~20-30 mi (X6)
+                     min_miles=30, max_miles=None),   # min_miles: Standard Oil, flat within ~20-30 mi (X6)
     "pipeline": dict(circuity=1.00, fixed_usd_per_ton=0.0, usd_per_ton_mile=0.2005, upstream_factor=1.0,
                      min_miles=0,  max_miles=25),
     "ocean":    dict(circuity=1.15, fixed_usd_per_ton=None, usd_per_ton_mile=None, upstream_factor=1.0,
@@ -181,7 +181,7 @@ MODE_PARAMS = {
 # --- Quoted rates (LANE_RATES_FILE) --------------------------------------
 # Quotes are in $/metric ton, on a dry (100% NaOH) or wet (as-shipped
 # solution) basis per row. Caustic soda usually ships as ~50% solution, so a
-# wet ton carries only SOLUTION_STRENGTH dry tons. Confirm both with EM.
+# wet ton carries only SOLUTION_STRENGTH dry tons. Confirm both with Standard Oil.
 SOLUTION_STRENGTH = 0.50       # dry tons NaOH per wet ton shipped
 METRIC_TONS_PER_SHORT_TON = 0.90718474
 

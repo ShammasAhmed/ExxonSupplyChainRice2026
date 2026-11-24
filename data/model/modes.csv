@@ -7,7 +7,7 @@ Covestro Baytown Industrial Complex,barge,existing,,,,Ships to Baytown and Beaum
 Covestro Baytown Industrial Complex,truck,existing,,,,Ships to Baytown by truck
 Covestro Baytown Industrial Complex,rail,existing,,,,Ships to Beaumont by railcar
 Olin Lemont Terminal,truck,existing,,,,Ships to Joliet by truck (sponsor lists supplier as WLK)
-Olin Lemont Terminal,barge,existing,,,,INFERRED: terminal is resupplied from Plaquemine/Baytown; confirm mode with EM
+Olin Lemont Terminal,barge,existing,,,,INFERRED: terminal is resupplied from Plaquemine/Baytown; confirm mode with Standard Oil
 Olin Lemont Terminal,rail,existing,,,,"Olin lists Lemont distribution capabilities as Barge, Railcar, Truck (olinchloralkali.com/about-us/locations); serving railroad unconfirmed"
 Brenntag Edmonton,truck,existing,,,,Ships to Strathcona by truck
 Quadra Toronto,truck,existing,,,,Ships to Nanticoke by truck
@@ -37,7 +37,7 @@ Beaumont Complex,barge,existing,,,,
 Beaumont Complex,rail,existing,,,0.2061333,7125 of 34565 DST: moving off rail (to barge) requires piping to the synthetics plant
 Gulf Coast Growth Ventures (GCGV),rail,existing,,,,
 Strathcona Refinery,truck,existing,,,,
-Strathcona Refinery,rail,existing,,,,"Physical rail access: Cando Southlands yard switches CN and CPKC cars into the refinery (site_rail_access, High). XOM has not said caustic arrives by rail; confirm"
+Strathcona Refinery,rail,existing,,,,"Physical rail access: Cando Southlands yard switches CN and CPKC cars into the refinery (site_rail_access, High). Standard Oil has not said caustic arrives by rail; confirm"
 Nanticoke Refinery,truck,existing,,,,
 Sarnia Refinery,truck,existing,,,,
 Sarnia Refinery,rail,candidate,407409,,,"Sponsor alternate mode; 2028 expansion to 20k+ DMT. Build cost $4.0M liquid rail spur (rate_sources G10), annualized 8%/20 yr (A1, team assumption)"

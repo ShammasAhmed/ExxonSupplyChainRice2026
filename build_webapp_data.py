@@ -6,7 +6,7 @@
 
 The webapp (webapp/index.html) never solves anything: it looks up results
 for the control settings the user picks. This script solves the optimum for
-every combination of control stops (CONTROLS below; 18,816 runs) plus XOM's
+every combination of control stops (CONTROLS below; 18,816 runs) plus Standard Oil's
 current network once, and packs them in the format webapp/DATA_SCHEMA.md
 describes. Identical solutions are stored once.
 
@@ -16,8 +16,8 @@ the model or its data, or the old results are reused.
 
 Controls (stop values; the default is marked *):
     china_ocean        China -> Vancouver ocean rate, $/wet MT: 80, 100, 120, 145*, 185, Off
-    supplier_switch    $/yr per new (supplier, XOM site) pair: 0, 25k, 50k*, 100k, 250k, 500k, 1M
-    mode_switch        $/yr per (XOM site, new arrival mode): 0, 10k, 50k*, 100k, 250k, 500k, 1M
+    supplier_switch    $/yr per new (supplier, Standard Oil site) pair: 0, 25k, 50k*, 100k, 250k, 500k, 1M
+    mode_switch        $/yr per (Standard Oil site, new arrival mode): 0, 10k, 50k*, 100k, 250k, 500k, 1M
     supply_cap         terminals and distributors, x today's volume: 1.0, 1.25*, 1.5, uncapped
     joliet_rail        Joliet rail spur: don't build / build
     sarnia_rail        Sarnia rail spur: don't build / build
@@ -77,13 +77,13 @@ CONTROLS = [
          default=3),
     dict(id="supplier_switch", label="Supplier switching cost", group="Switching costs", kind="slider",
          decision=False, unit="$/yr per new supplier at a site",
-         help="Yearly cost of each new supplier at an XOM site: qualification, audit, contract (team "
+         help="Yearly cost of each new supplier at a Standard Oil site: qualification, audit, contract (team "
               "assumption A5; our estimate is $15k-35k bottom-up, up to ~$430k at 2-5% of spend).",
          stops=[dict(label=_k(v), value=v) for v in SUPPLIER_STOPS], default=2),
     dict(id="mode_switch", label="Mode switching cost", group="Switching costs", kind="slider",
          decision=False, unit="$/yr per site per new mode",
          help="Yearly cost when a site starts receiving by a new mode: procedures, training, staffing "
-              "(team assumption A6). On top of construction. Add $170k-640k/yr if XOM must lease its own rail cars.",
+              "(team assumption A6). On top of construction. Add $170k-640k/yr if Standard Oil must lease its own rail cars.",
          stops=[dict(label=_k(v), value=v) for v in MODE_STOPS], default=2),
     dict(id="supply_cap", label="Terminal & distributor capacity", group="Capacity", kind="slider",
          decision=False, unit="x today's volume",
@@ -139,15 +139,15 @@ LABELS = {
 
 NOTES = [
     "Every result is precomputed by the optimization model (Gurobi); the page only looks them up. "
-    "Demand is the base scenario (XOM's 10/07 volumes).",
-    "Today's network is XOM's 14 North American lanes from its 10/07 sheet, priced with the same cost model.",
-    "Caustic prices are XOM's prices per lane (10/07 sheet). A new lane gets XOM's average price for "
-    "the same supplier and mode; suppliers XOM does not use get our estimate.",
-    "Freight rates are public tariffs (Quality Carriers truck, STB waybill rail scaled to XOM's $12,000/car, "
-    "Kirby barge towing). XOM's contract rates are probably lower.",
-    "Gulf-to-Chicago barge is calibrated to XOM's own price: XOM pays $450/DST at the Lemont terminal with "
+    "Demand is the base scenario (Standard Oil's 10/07 volumes).",
+    "Today's network is Standard Oil's 14 North American lanes from its 10/07 sheet, priced with the same cost model.",
+    "Caustic prices are Standard Oil's prices per lane (10/07 sheet). A new lane gets Standard Oil's average price for "
+    "the same supplier and mode; suppliers Standard Oil does not use get our estimate.",
+    "Freight rates are public tariffs (Quality Carriers truck, STB waybill rail scaled to Standard Oil's $12,000/car, "
+    "Kirby barge towing). Standard Oil's contract rates are probably lower.",
+    "Gulf-to-Chicago barge is calibrated to Standard Oil's own price: Standard Oil pays $450/DST at the Lemont terminal with "
     "the inbound barge included, which implies 0.40x our tariff barge rate on that lane (D22).",
-    "The Olin Lemont Terminal (formerly K.A. Steel) is a terminal, not a producer: per XOM, its caustic comes "
+    "The Olin Lemont Terminal (formerly K.A. Steel) is a terminal, not a producer: per Standard Oil, its caustic comes "
     "from Plaquemine, LA or Baytown, TX.",
     "Switching costs and terminal capacity have no public source; they are team assumptions to vary.",
     "Construction costs are one-time costs annualized at 8% over 20 years. The Joliet barge berth "
@@ -159,10 +159,10 @@ NOTES = [
 ASSUMPTIONS = [
     dict(id="A1", text="Construction annualized at 8% over 20 years."),
     dict(id="A4", text="Terminals and distributors can handle 1.25x today's volume (slider)."),
-    dict(id="A5", text="Supplier switching cost per new (supplier, XOM site) pair (slider)."),
-    dict(id="A6", text="Mode switching cost per XOM site starting a new arrival mode (slider)."),
+    dict(id="A5", text="Supplier switching cost per new (supplier, Standard Oil site) pair (slider)."),
+    dict(id="A6", text="Mode switching cost per Standard Oil site starting a new arrival mode (slider)."),
     dict(id="D19", text="China to Vancouver ocean freight $145/wet MT base, $115-185 range (slider)."),
-    dict(id="D22", text="Gulf to Lemont barge implied by XOM's $450/DST terminal price."),
+    dict(id="D22", text="Gulf to Lemont barge implied by Standard Oil's $450/DST terminal price."),
 ]
 
 
@@ -287,7 +287,7 @@ def node_list(net: Network) -> list[dict]:
         modes = sorted(m for (s, m), sm in net.modes.items() if s == name and sm.existing)
         cands = sorted(m for (s, m), sm in net.modes.items() if s == name and not sm.existing)
         if n.is_sink:
-            role, kind = "sink", "xom_site"
+            role, kind = "sink", "standard_oil_site"
         elif n.is_intermediate:
             role, kind = "intermediate", "railhead" if name.startswith("CN ") else "terminal"
         else:
@@ -350,7 +350,7 @@ def main() -> None:
                 keep(solve_run(k))
     logger.info("Solved %d runs in %.0f s", len(todo), time.time() - t0)
 
-    # Baseline: XOM's network as it is today.
+    # Baseline: Standard Oil's network as it is today.
     net = _network(145)
     as_is = solve_scenario(net, SCENARIO, as_is=True)
     if as_is.status != "OPTIMAL":

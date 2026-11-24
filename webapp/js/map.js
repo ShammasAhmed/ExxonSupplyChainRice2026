@@ -280,7 +280,7 @@
     else CX.select({ type: "node", id: n.id });
   }
   function roleName(n) {
-    if (n.role === "sink") return "XOM site";
+    if (n.role === "sink") return "Standard Oil site";
     if (n.role === "source") return n.kind === "distributor" ? "Supplier (distributor)" : n.kind === "export" ? "Supplier (export)" : "Supplier";
     return n.kind === "railhead" ? "Railhead (transload)" : "Terminal / hub";
   }
@@ -318,7 +318,7 @@
 
   function zoomClasses() { /* labels are placed by placeLabels() */ }
 
-  // Greedy label placement: XOM sites first (largest first), then used nodes,
+  // Greedy label placement: Standard Oil sites first (largest first), then used nodes,
   // then unused ones; a label is hidden if it would overlap one already shown.
   var lastVol = {};
   function placeLabels() {

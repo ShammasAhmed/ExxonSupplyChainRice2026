@@ -1,33 +1,33 @@
 
-# Exxon Supply Chain Rice 2026
+# Standard Oil Supply Chain Rice 2026
 
-Rice University CMOR 492 Senior Design Project with ExxonMobil
+Rice University CMOR 492 Senior Design Project with Standard Oil
 
 ## Project Plan
 
-ExxonMobil (EM) currently sources 100% of its caustic soda domestically. Rising
+Standard Oil currently sources 100% of its caustic soda domestically. Rising
 exports from India, China, and other global partners — driven by growing PVC
 pipe demand (and therefore Chlorine/caustic-soda co-production) in those
-construction markets — suggest EM may now be able to source caustic soda more
-cheaply from abroad than from the US. This project's goal is to challenge EM's
+construction markets — suggest Standard Oil may now be able to source caustic soda more
+cheaply from abroad than from the US. This project's goal is to challenge Standard Oil's
 current domestic-only caustic soda supply chain network and produce evidence
-for or against the hypothesis that EM can source cheaper caustic soda
+for or against the hypothesis that Standard Oil can source cheaper caustic soda
 globally.
 
 The work runs September 2026 - December 2026 in three levels:
 
 ### Level 1 - Regional U.S. Pricing Model (current phase)
 
-Map, and ideally replicate, EM's existing regional supply chain network so it
+Map, and ideally replicate, Standard Oil's existing regional supply chain network so it
 can serve as the baseline for a later global comparison. Built from:
 
-- **Demand nodes** - EM plant locations and approximate demand.
+- **Demand nodes** - Standard Oil plant locations and approximate demand.
 - **Supply nodes** - domestic caustic soda producers: locations, production
   capacity ranges, and estimated price (index + markup).
 - **Node costs** - a transport cost model connecting supply and demand nodes,
   expressed as one of: USD/mile transported, USD/dry short ton (DST) moved,
   USD/mile-ton, or a fixed USD amount per lane.
-- **Nodal flow** (optional) - actual EM flow data, to cross-reference the
+- **Nodal flow** (optional) - actual Standard Oil flow data, to cross-reference the
   model's output against reality.
 
 All data is modeled with low/high/mean range scenarios (bear/base/bull), and
@@ -38,15 +38,15 @@ and 1.2x base (`SCENARIO_MULTIPLIERS` in `config.py`).
 
 | Window | Milestone |
 | --- | --- |
-| Sept 24 - Oct 12 | Data wrangling: receive and standardize all data from EM |
-| Oct 12 - Oct 19 | Build the model on Gurobi; the optimal solution should reproduce EM's current network |
-| Oct 19 - Nov 2 | Present the solution to EM for sign-off to proceed to the global sourcing study |
+| Sept 24 - Oct 12 | Data wrangling: receive and standardize all data from Standard Oil |
+| Oct 12 - Oct 19 | Build the model on Gurobi; the optimal solution should reproduce Standard Oil's current network |
+| Oct 19 - Nov 2 | Present the solution to Standard Oil for sign-off to proceed to the global sourcing study |
 
-Levels 2 and 3 (the global sourcing study and beyond) are gated on EM
+Levels 2 and 3 (the global sourcing study and beyond) are gated on Standard Oil
 approving the Level 1 model.
 
 **Where we are (2026-11-10):** the Level 1 North America model is built and
-uses sourced public freight rates. XOM is checking those rates in the
+uses sourced public freight rates. Standard Oil is checking those rates in the
 rate-check workbook (`export_rate_check.py`). Level 2 work has started:
 the model now has product prices, a Chicago hub (IMTT Lemont), and a China
 export node shipping by ocean to Vancouver and by CN rail into Alberta.
@@ -72,7 +72,7 @@ total cost, the cost breakdown and every lane used, and it writes a map to
 `output/network_map_<scenario>.html` (plus a `.png` if selenium can find
 Chrome). On the map, a box shows the cost breakdown in $/yr and $/DST, and
 hovering shows freight $/DST on each flow, the price at each source, the
-terminal fee at each hub, and the landed $/DST at each EM site (product +
+terminal fee at each hub, and the landed $/DST at each Standard Oil site (product +
 logistics; build costs are not allocated to sites). Part of the output:
 
 ```text
@@ -90,8 +90,8 @@ Other scripts:
 
 | Command | What it does |
 | --- | --- |
-| `python gap.py --supplier-switch-cost 250000 --mode-switch-cost 250000` | Prices XOM's current network (`data/model/current_flows.csv`) and the optimum on the same costs, and writes the gap site by site (`output/gap_sites_<scenario>.csv`) and route by route (`output/gap_lanes_<scenario>.csv`). Switch costs default to 0. |
-| `python export_rate_check.py` | Writes `output/XOM_rate_check.xlsx`, the workbook XOM uses to check our freight rates. Every cost is a live formula on the rate inputs. It also has the rail lanes, a Chicago hub comparison and the source of every number. |
+| `python gap.py --supplier-switch-cost 250000 --mode-switch-cost 250000` | Prices Standard Oil's current network (`data/model/current_flows.csv`) and the optimum on the same costs, and writes the gap site by site (`output/gap_sites_<scenario>.csv`) and route by route (`output/gap_lanes_<scenario>.csv`). Switch costs default to 0. |
+| `python export_rate_check.py` | Writes `output/StandardOil_rate_check.xlsx`, the workbook Standard Oil uses to check our freight rates. Every cost is a live formula on the rate inputs. It also has the rail lanes, a Chicago hub comparison and the source of every number. |
 | `python sensitivity.py --mode rail --cross-border --multipliers 0.8 1 1.2 1.5` | Re-solves every scenario with one mode's line-haul rates scaled. `--cross-border` scales only US <-> Canada lanes. Writes `output/sensitivity_<scope>.csv`. |
 | `python build_distances.py` | Recomputes routed miles into `data/model/lane_distances.csv`. Only needed after adding sites or `modes.csv` rows (`--modes barge` redoes one mode). Needs internet; the waterway network is cached in `.cache/`. |
 
@@ -103,7 +103,7 @@ Common changes:
 - **Change a volume:** edit `base_dst_per_yr` in `data/model/sites.csv`. For
   sinks it is base-scenario demand; bear and bull follow from
   `SCENARIO_MULTIPLIERS` in `config.py`. For sources it is today's volume to
-  XOM, which sets the supply cap (below).
+  Standard Oil, which sets the supply cap (below).
 - **Change a supply cap:** each source has a `supplier_type` (producer,
   terminal, distributor or export) in `sites.csv`, and
   `SUPPLY_CAP_MULTIPLIER` in `config.py` sets its cap as a multiple of
@@ -111,10 +111,10 @@ Common changes:
 - **Change a product price or terminal fee:** a current supplier's prices
   are per lane in `data/model/current_flows.csv`. `price_usd_per_dst` in
   `data/model/sites.csv` (required for sources) is used only for suppliers
-  XOM doesn't buy from today (rule under "How the model works").
+  Standard Oil doesn't buy from today (rule under "How the model works").
   `terminal_fee_usd_per_wet_mt` applies to intermediates only.
-- **Change XOM's current network:** edit `data/model/current_flows.csv` (one
-  row per supplier, XOM site and mode, from XOM's 10/07 sheet). Each site's
+- **Change Standard Oil's current network:** edit `data/model/current_flows.csv` (one
+  row per supplier, Standard Oil site and mode, from Standard Oil's 10/07 sheet). Each site's
   rows must add up to its base demand in `sites.csv`.
 - **Turn on switching costs:** `SUPPLIER_SWITCH_USD_PER_YR` and
   `MODE_SWITCH_USD_PER_YR` in `config.py`, or `--supplier-switch-cost` /
@@ -137,28 +137,28 @@ One min-cost-flow MILP per scenario, solved with Gurobi (`model.py`):
   This way, changing mode at a terminal costs a second round of handling.
 - **Flow tracks its origin:** flow is split by where it was loaded (supplier
   and the mode it leaves by), so the model knows which supplier serves which
-  XOM site even through any number of terminals. Its size grows with
+  Standard Oil site even through any number of terminals. Its size grows with
   suppliers x arcs, not with the number of possible routes. After the solve,
   each supplier's flow is split into routes (supplier -> terminals -> site)
   for reporting.
 - **Objective:** minimize total landed cost in $/yr: product price + line
   haul + handling + terminal fees at intermediates + annualized build cost of
   candidate modes + switching costs.
-- **Product price per lane:** XOM's prices differ by lane (Covestro: $380 by
+- **Product price per lane:** Standard Oil's prices differ by lane (Covestro: $380 by
   barge to Baytown, $450 by truck). A delivery from supplier s, leaving by
-  mode m, to site t pays (1) XOM's price for that lane in `current_flows.csv`,
-  else (2) XOM's volume-weighted price for what s ships by m today, else (3)
+  mode m, to site t pays (1) Standard Oil's price for that lane in `current_flows.csv`,
+  else (2) Standard Oil's volume-weighted price for what s ships by m today, else (3)
   `price_usd_per_dst` in `sites.csv`.
-- **As-is vs. optimal:** the same model with flows fixed to XOM's current
+- **As-is vs. optimal:** the same model with flows fixed to Standard Oil's current
   lanes (`current_flows.csv`, scaled to the scenario) prices today's network.
   The difference is the gap (`gap.py`).
 - **Switching costs** (`config.py`, default 0, team assumptions A5 and A6):
-  - *Supplier switch:* charged once per (supplier, XOM site) pair that
+  - *Supplier switch:* charged once per (supplier, Standard Oil site) pair that
     isn't in today's network. It's per pair because supplier qualification,
     contracts and receiving checks happen site by site.
-  - *Mode switch:* charged once per (XOM site, arrival mode) the site doesn't
+  - *Mode switch:* charged once per (Standard Oil site, arrival mode) the site doesn't
     receive by today, on top of any build cost. It's per site because a new
-    mode's operating burden falls on the site (XOM 10/07: sites don't want
+    mode's operating burden falls on the site (Standard Oil 10/07: sites don't want
     to switch modes back and forth). A lane moving to a mode its site
     already uses (Baytown truck -> barge) pays nothing.
 - **Intermediates** (the Olin Lemont Terminal and IMTT Lemont in Chicago,
@@ -187,15 +187,15 @@ a row in `data/reference/rate_sources.csv` (value, date, URL, page):
 
 - Truck: Quality Carriers liquid chemical tariff, plus fuel surcharge.
 - Rail: STB 2024 waybill fit for caustic tank cars, scaled to the ~$12,000/car
-  supplier rate XOM gave for Gulf Coast -> Edmonton.
+  supplier rate Standard Oil gave for Gulf Coast -> Edmonton.
 - Barge: Kirby Inland Marine Aug 2026 towing tariffs (towing only; barge hire
   is not public).
 - Ocean (China -> Vancouver): Clarksons chemical tanker spot rates (Odfjell
   3Q26) scaled to the US West Coast with SSY lane ratios.
-- Product prices: XOM's 10/07 sheet for current suppliers; Argus / PriceSeek
+- Product prices: Standard Oil's 10/07 sheet for current suppliers; Argus / PriceSeek
   FOB China for the China node.
 
-These are public list rates, so XOM's contract rates are probably lower.
+These are public list rates, so Standard Oil's contract rates are probably lower.
 
 ## Repo map
 
@@ -204,11 +204,11 @@ them changes the results.
 
 | File | Contents |
 | --- | --- |
-| `sites.csv` | 11 suppliers (10 in the US and Canada, 1 China export node), 4 intermediate hubs and 10 EM sites: role, location, base-scenario volume (DST/yr), product price ($/DST, sources) and terminal fee ($/wet MT, intermediates). `notes` records unit conversions and sources. |
-| `modes.csv` | Modes each site has: `existing`, or `candidate` with an annualized build cost. Optional capacity and minimum share. Built from EM's caustic model data sheet. |
+| `sites.csv` | 11 suppliers (10 in the US and Canada, 1 China export node), 4 intermediate hubs and 10 Standard Oil sites: role, location, base-scenario volume (DST/yr), product price ($/DST, sources) and terminal fee ($/wet MT, intermediates). `notes` records unit conversions and sources. |
+| `modes.csv` | Modes each site has: `existing`, or `candidate` with an annualized build cost. Optional capacity and minimum share. Built from Standard Oil's caustic model data sheet. |
 | `lane_distances.csv` | Routed miles per lane, written by `build_distances.py`: truck on OpenStreetMap highways, rail on Class 1 lines, barge on the USACE National Waterway Network, ocean on scgraph's marnet sea lanes. |
-| `lane_rates.csv` | Quoted line-haul rates per lane: the China -> Vancouver ocean rate, and Gulf -> Lemont barge rates implied by XOM's $450/DST terminal price (D22). |
-| `current_flows.csv` | XOM's current network from its 10/07 sheet: supplier, XOM site, mode, volume (DST/yr) and the price XOM pays on that lane. Canadian rows converted from DMT. |
+| `lane_rates.csv` | Quoted line-haul rates per lane: the China -> Vancouver ocean rate, and Gulf -> Lemont barge rates implied by Standard Oil's $450/DST terminal price (D22). |
+| `current_flows.csv` | Standard Oil's current network from its 10/07 sheet: supplier, Standard Oil site, mode, volume (DST/yr) and the price Standard Oil pays on that lane. Canadian rows converted from DMT. |
 
 **Reference data** (`data/reference/`): research behind the numbers. The model
 does not read these; only the rate-check workbook does.
@@ -216,7 +216,7 @@ does not read these; only the rate-check workbook does.
 | File | Contents |
 | --- | --- |
 | `network.xlsx` | The original site workbook (bear/base/bull volumes in DST and DMT, with formulas), kept to show where `sites.csv` came from. The model does not read it: edit `data/model/sites.csv` instead. |
-| `rate_sources.csv` | Source of every rate, price and assumption. IDs start with X (XOM-stated), T / R / B / O (truck, rail, barge, ocean sources), P (product prices and suppliers), G (general: circuity, terminals, borders, build costs), D (derived) or A (team assumption). |
+| `rate_sources.csv` | Source of every rate, price and assumption. IDs start with X (Standard Oil-stated), T / R / B / O (truck, rail, barge, ocean sources), P (product prices and suppliers), G (general: circuity, terminals, borders, build costs), D (derived) or A (team assumption). |
 | `rail_lanes.csv` | Existing and candidate rail lanes: serving railroads, likely route, interchanges. |
 | `site_rail_access.csv` | Railroads serving each site, with confidence and sources. |
 
@@ -247,10 +247,10 @@ does not read these; only the rate-check workbook does.
   The Olin Lemont Terminal's throughput is capped the same way (1.25 x
   Joliet's 19,260 DST/yr); IMTT Lemont is uncapped.
 - **Prices on new lanes.** A supplier serving a new site, or moving a lane to
-  another mode, gets XOM's price for that kind of shipment (e.g. Baytown's
+  another mode, gets Standard Oil's price for that kind of shipment (e.g. Baytown's
   truck volume moving to barge gets Covestro's $380 barge price). That price
   gap is a large part of the savings at Baytown and Beaumont. Confirm with
-  XOM that it reflects the mode and not something else.
+  Standard Oil that it reflects the mode and not something else.
 - **Switching costs are 0 by default.** Supplier and mode switch costs have
   no source yet (A5, A6). Run `gap.py` with a few values to show how the
   savings hold up.
@@ -259,16 +259,16 @@ does not read these; only the rate-check workbook does.
 - **Unconfirmed plumbing.** Strathcona rail receipt, CN Vermilion as the Cold
   Lake railhead, and the IMTT Lemont truck rack are unconfirmed; coordinates
   for IMTT Lemont and CN Lynton are approximate.
-- **Who runs the Lemont terminal.** XOM's sheet says Joliet buys from WLK
+- **Who runs the Lemont terminal.** Standard Oil's sheet says Joliet buys from WLK
   (Westlake) at Lemont, a terminal fed from Plaquemine or Baytown. The model
   has it as the Olin Lemont Terminal, an intermediate at Olin's site (the
   former K.A. Steel site, 15185 Main St; barge, railcar and truck). The
-  inbound barge rate is set so Plaquemine product reaches it at XOM's $450/DST
+  inbound barge rate is set so Plaquemine product reaches it at Standard Oil's $450/DST
   (D22): 0.40x our tariff, which also makes Chicago cheaper for Canada.
   The team's call list also has Westlake at 13589 Main St, Lemont, and on W.
   Durkee Rd, Channahon (tank truck). Those aren't in the model yet. If Joliet's
   supplier is the truck-only Westlake site, a move to rail also means a new
   supplier.
-- **No XOM rate quotes.** XOM can't share contract rates, so they are
+- **No Standard Oil rate quotes.** Standard Oil can't share contract rates, so they are
   checking our estimates in the rate-check workbook instead, and
   `data/model/lane_rates.csv` stays empty.

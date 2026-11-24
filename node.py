@@ -75,14 +75,14 @@ LaneKey = tuple[str, str, Mode]   # (origin site, destination site, mode)
 
 @dataclass(frozen=True, slots=True)
 class CurrentLane:
-    """One lane of XOM's current network (a row of config.CURRENT_FLOWS_FILE).
+    """One lane of Standard Oil's current network (a row of config.CURRENT_FLOWS_FILE).
 
-    XOM buys dst_per_yr (base scenario) from `supplier`, which ships it by
+    Standard Oil buys dst_per_yr (base scenario) from `supplier`, which ships it by
     `mode`, at `price` ($ per DST, ex freight). A direct lane goes straight
     to `sink`. A lane with `via` goes to that terminal by `mode`, then on to
     `sink` by `arrival_mode` (e.g. Plaquemine -barge-> Olin Lemont Terminal
     -truck-> Joliet). A lane with dst_per_yr == 0 is an alternative origin
-    XOM named: it carries nothing today but does not count as a new supplier.
+    Standard Oil named: it carries nothing today but does not count as a new supplier.
     """
 
     supplier: str
@@ -96,7 +96,7 @@ class CurrentLane:
 
     @property
     def last_mode(self) -> Mode:
-        """The mode the product arrives at the XOM site by."""
+        """The mode the product arrives at the Standard Oil site by."""
         return self.arrival_mode or self.mode
 
     @property

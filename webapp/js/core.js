@@ -93,7 +93,7 @@
     idx: defaults(),
     unit: "dst",
     showBaseline: true,
-    view: "plan", // "plan" = optimized plan for the settings; "today" = XOM's current network only
+    view: "plan", // "plan" = optimized plan for the settings; "today" = Standard Oil's current network only
     animate: !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches),
     sel: null // {type:'route', sig, site} | {type:'site', id} | {type:'node', id}
   };

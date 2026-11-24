@@ -1,12 +1,12 @@
-"""Lane-by-lane gap between XOM's current network and the optimal one.
+"""Lane-by-lane gap between Standard Oil's current network and the optimal one.
 
     python gap.py
     python gap.py --scenarios base --supplier-switch-cost 250000 --mode-switch-cost 250000
 
-Each scenario is solved twice on the same costs: as-is (flows fixed to XOM's
+Each scenario is solved twice on the same costs: as-is (flows fixed to Standard Oil's
 current lanes, config.CURRENT_FLOWS_FILE) and optimal. Writes, per scenario:
 
-    gap_sites_<scenario>.csv   one row per XOM site: as-is vs. optimal $/yr,
+    gap_sites_<scenario>.csv   one row per Standard Oil site: as-is vs. optimal $/yr,
                                savings, and who supplies it by which route
     gap_lanes_<scenario>.csv   every route in either plan with its $/DST
                                breakdown, plus the builds and switches
@@ -32,11 +32,11 @@ from model import Solution, solve_scenario
 from network import Network, build_network
 
 PLANS = ("as-is", "optimal")
-NETWORK = "(network)"   # site label for builds at sites that are not XOM sites
+NETWORK = "(network)"   # site label for builds at sites that are not Standard Oil sites
 
 
 def site_costs(net: Network, sol: Solution) -> dict[str, float]:
-    """$/yr charged to each XOM site: its routes plus builds and switches there."""
+    """$/yr charged to each Standard Oil site: its routes plus builds and switches there."""
     out = {t: 0.0 for t, n in net.sites.items() if n.is_sink}
     for r in sol.routes:
         out[r.sink] += r.dst * r.landed

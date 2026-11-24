@@ -110,7 +110,7 @@ def _site_tooltip(n: Node, label: str, landed: dict[str, tuple[float, float]] | 
     lines = [f"<b>{n.name}</b>", f"{n.city}, {n.state}"]
     if n.is_source:
         cap = "uncapped" if n.supply_cap is None else f"cap {n.supply_cap:,.0f}"
-        lines += [f"Today's volume to XOM: {n.base:,.0f} DST/yr ({cap})",
+        lines += [f"Today's volume to Standard Oil: {n.base:,.0f} DST/yr ({cap})",
                   f"Price: ${n.price:,.2f}/DST ex freight"]
     elif n.is_sink:
         lines.append(f"Demand (base): {n.base:,.0f} DST/yr")

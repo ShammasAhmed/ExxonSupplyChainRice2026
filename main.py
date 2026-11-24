@@ -73,7 +73,7 @@ def main() -> None:
         if net.current:
             as_is = solve_scenario(net, scenario, as_is=True, **switch)
             if as_is.status == "OPTIMAL":
-                print(f"   XOM's current network: ${as_is.objective_usd:,.0f}/yr, so the optimum saves "
+                print(f"   Standard Oil's current network: ${as_is.objective_usd:,.0f}/yr, so the optimum saves "
                       f"${as_is.objective_usd - sol.objective_usd:,.0f}/yr (site by site: python gap.py)")
         print("   " + "  ".join(f"{k}=${v:,.0f}" for k, v in sol.cost_breakdown.items() if v))
         for f in sol.fixed:
@@ -83,7 +83,7 @@ def main() -> None:
             print(f"   {r.dst:>10,.0f}  {'*' if r.current else ' '} {r.label}   (${r.landed:,.2f}/ton landed: "
                   f"${r.product:,.2f} product + ${r.line_haul + r.handling:,.2f} logistics)")
         if net.current:
-            print("   (* = one of XOM's current lanes)")
+            print("   (* = one of Standard Oil's current lanes)")
         lanes = net.lanes
 
         title = f"Caustic soda flows: {scenario.capitalize()} scenario ({VOLUME_UNIT})"

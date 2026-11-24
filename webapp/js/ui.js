@@ -312,7 +312,7 @@
       return '<span><svg width="30" height="14" aria-hidden="true"><line x1="2" y1="7" x2="28" y2="7" stroke="#d9d9de" stroke-width="' + w.toFixed(1) + '" stroke-linecap="round"/></svg>' + kfmt(q) + "</span>";
     }).join("");
     var nodesKey = [
-      { role: "source", label: "Supplier" }, { role: "intermediate", label: "Terminal" }, { role: "sink", label: "XOM site" }
+      { role: "source", label: "Supplier" }, { role: "intermediate", label: "Terminal" }, { role: "sink", label: "Standard Oil site" }
     ].map(function (r) {
       return '<div class="legend-row"><span style="width:18px;display:flex;justify-content:center">' + CX.Map.markerSVG({ role: r.role }, 13) + "</span><span>" + r.label + "</span></div>";
     }).join("");
@@ -424,7 +424,7 @@
       html += '<div class="chain-leg"><span class="rail"><i style="background:' + CX.modeColor(l.mode) + '"></i></span><span class="leg-info">' +
         UI.modePill(l.mode) + '<span class="num">' + (l.miles != null ? CX.num(l.miles) + " mi" : "") + "</span>" +
         '<span class="muted">· ' + CX.perUnit(CX.legCost(l)) + " " + esc(CX.unitSuffix()) + "</span></span></div>";
-      html += chainNode(l.to, l.to === r.site ? "XOM site" : "");
+      html += chainNode(l.to, l.to === r.site ? "Standard Oil site" : "");
     });
     return html + "</div>";
   }
@@ -564,7 +564,7 @@
     var chips = CX.siteChips(plan, siteId).map(chipHTML).join("");
     var unchanged = sameAsToday(bs, ps);
     var rebal = !unchanged && ps.extras === 0 && ps.routes.every(function (r) { return r.current; });
-    var html = '<span class="eyebrow">XOM site</span><div class="d-title">' + esc(n.label || n.id) + "</div>" +
+    var html = '<span class="eyebrow">Standard Oil site</span><div class="d-title">' + esc(n.label || n.id) + "</div>" +
       '<div class="d-sub">' + esc([n.city, n.region, n.country].filter(Boolean).join(", ")) + " · demand " + CX.dst(dem) + "</div>" +
       '<div class="d-chips">' + (chips || (unchanged ? '<span class="chip chip-same">same as today</span>' : rebal ? '<span class="chip chip-same">volumes shifted between today\'s lanes</span>' : "")) + "</div>";
     html += '<div class="d-stats">' + stat("Today", CX.perUnit(bs.landed), CX.unitSuffix()) + stat("Plan", CX.perUnit(ps.landed), CX.unitSuffix()) +
@@ -758,7 +758,7 @@
   UI.openAbout = function () {
     var meta = CX.D.meta || {};
     var html = "";
-    html += "<p>Each combination of the left-hand settings was solved in advance by the optimization model. The map shows the cheapest plan for the settings you picked; the grey dashed lines are XOM's network today.</p>";
+    html += "<p>Each combination of the left-hand settings was solved in advance by the optimization model. The map shows the cheapest plan for the settings you picked; the grey dashed lines are Standard Oil's network today.</p>";
     html += "<p><b>Savings</b> = today's total minus the plan's total (▼ green = cheaper than today, ▲ red = more expensive). <b>Loss vs. best</b> compares your network decisions with the best decisions for the same market, switching-cost and capacity assumptions.</p>";
     if (meta.notes && meta.notes.length) html += "<h3>Notes</h3><ul>" + meta.notes.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") + "</ul>";
     if (meta.assumptions && meta.assumptions.length) html += "<h3>Assumptions</h3><dl>" + meta.assumptions.map(function (a) { return "<dt>" + esc(a.id) + "</dt><dd>" + esc(a.text) + "</dd>"; }).join("") + "</dl>";

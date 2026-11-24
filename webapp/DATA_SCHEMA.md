@@ -27,7 +27,7 @@ Money is US dollars. Volume is dry short tons (DST). "per yr" = per year.
     id: "Olin Plaquemine Plant",       // exact site name; every other reference uses this id
     label: "Plaquemine",               // short display name
     role: "source" | "intermediate" | "sink",
-    kind: "producer" | "distributor" | "export" | "terminal" | "railhead" | "xom_site",
+    kind: "producer" | "distributor" | "export" | "terminal" | "railhead" | "standard_oil_site",
     lat: 30.268, lon: -91.223,
     city: "Plaquemine", region: "Louisiana", country: "USA",
     demand_dst_per_yr: 45856,          // sinks only, else null
@@ -46,7 +46,7 @@ Money is US dollars. Volume is dry short tons (DST). "per yr" = per year.
     label: "China ocean freight",
     group: "Market" | "Switching costs" | "Capacity" | "Network decisions",
     kind: "slider" | "toggle",
-    decision: false,      // true = something XOM chooses (build / open a hub).
+    decision: false,      // true = something Standard Oil chooses (build / open a hub).
                           // false = an assumption about the world.
     help: "One-sentence explanation shown on hover.",
     unit: "$/wet MT",     // optional
@@ -64,7 +64,7 @@ Money is US dollars. Volume is dry short tons (DST). "per yr" = per year.
     { id: "mode_switch",     label: "Mode switching" }
   ],
 
-  baseline: Plan,          // XOM's current network ("as-is")
+  baseline: Plan,          // Standard Oil's current network ("as-is")
   plans: { "p0": Plan, "p1": Plan, ... },   // unique optimal solutions (deduplicated)
   runs: {                  // one entry per combination of control stops
     "2-0-3-1-1-0-1-1": { plan: "p17", total_usd_per_yr: 104453345.8 }
@@ -90,7 +90,7 @@ A run key is the stop index of every control, in `controls` order, joined by
 
 ### Route
 
-One product path from a supplier to an XOM site.
+One product path from a supplier to a Standard Oil site.
 
 ```js
 {
@@ -98,7 +98,7 @@ One product path from a supplier to an XOM site.
   supplier: "Olin Plaquemine Plant",   // node id
   site: "Joliet Refinery",              // node id (sink)
   dst_per_yr: 19260,
-  current: false,          // true if XOM uses this exact supplier + path today
+  current: false,          // true if Standard Oil uses this exact supplier + path today
   legs: [{
     from: "Olin Plaquemine Plant", to: "IMTT Lemont", mode: "barge",
     miles: 1180.4,
