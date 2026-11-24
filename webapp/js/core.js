@@ -55,30 +55,60 @@
   CX.assumptionIdx = [];
   CX.controls.forEach(function (c, i) { (c.decision ? CX.decisionIdx : CX.assumptionIdx).push(i); });
 
+  // Build-cost controls (c.build_cost) don't change the routes, only what the
+  // forced builds cost, so D.runs is keyed by the other controls only and the
+  // cost is swapped in here (DATA_SCHEMA.md, "Build-cost controls").
+  CX.solveIdx = [];
+  CX.costIdx = [];
+  CX.controls.forEach(function (c, i) { (c.build_cost ? CX.costIdx : CX.solveIdx).push(i); });
+
   CX.key = function (idx) { return idx.join("-"); };
-  CX.run = function (idx) { return D.runs[CX.key(idx)] || null; };
+  CX.runKey = function (idx) { return CX.solveIdx.map(function (i) { return idx[i]; }).join("-"); };
+  var runCache = {};
+  CX.run = function (idx) {
+    var k = CX.key(idx);
+    if (Object.prototype.hasOwnProperty.call(runCache, k)) return runCache[k];
+    var base = D.runs[CX.runKey(idx)] || null;
+    if (!base || !CX.costIdx.length) return (runCache[k] = base);
+    var over = {}, costKey = CX.costIdx.map(function (i) { return idx[i]; }).join("-");
+    CX.costIdx.forEach(function (i) {
+      var c = CX.controls[i], v = c.stops[idx[i]].value;
+      c.build_cost.forEach(function (b) { over[b.site + "|" + b.mode] = v; });
+    });
+    var plan = D.plans[base.plan], delta = 0;
+    var builds = (plan.builds || []).map(function (b) {
+      var v = over[b.site + "|" + b.mode];
+      if (v == null || v === b.usd_per_yr) return b;
+      delta += v - b.usd_per_yr;
+      return { site: b.site, mode: b.mode, usd_per_yr: v };
+    });
+    if (!delta) return (runCache[k] = base);
+    var pid = base.plan + "~" + costKey;
+    if (!D.plans[pid]) {
+      var bd = {};
+      for (var c in plan.breakdown) bd[c] = plan.breakdown[c];
+      bd.build = (bd.build || 0) + delta;
+      D.plans[pid] = { total_usd_per_yr: plan.total_usd_per_yr + delta, breakdown: bd, routes: plan.routes,
+        builds: builds, supplier_switches: plan.supplier_switches, mode_switches: plan.mode_switches };
+    }
+    return (runCache[k] = { plan: pid, total_usd_per_yr: base.total_usd_per_yr + delta });
+  };
   CX.plan = function (run) { return run ? D.plans[run.plan] || null : null; };
 
-  function ndKey(parts) {
-    var out = [];
-    for (var i = 0; i < CX.assumptionIdx.length; i++) out.push(parts[CX.assumptionIdx[i]]);
-    return out.join("-");
-  }
-  // One pass: for every setting of the non-decision controls, the run with the
-  // lowest total over all decision combinations.
-  CX.bestByAssumptions = {};
-  (function () {
-    var runs = D.runs || {};
-    for (var k in runs) {
-      if (!Object.prototype.hasOwnProperty.call(runs, k)) continue;
-      var parts = k.split("-");
-      var nk = ndKey(parts);
-      var r = runs[k], b = CX.bestByAssumptions[nk];
-      if (!b || r.total_usd_per_yr < b.total) CX.bestByAssumptions[nk] = { total: r.total_usd_per_yr, key: k };
-    }
-  })();
+  // The run with the lowest total over every combination of the decision
+  // controls, the other controls held at idx.
   CX.best = function (idx) {
-    return CX.bestByAssumptions[ndKey(idx.map(String))] || null;
+    var best = null, alt = idx.slice();
+    (function walk(j) {
+      if (j === CX.decisionIdx.length) {
+        var r = CX.run(alt);
+        if (r && (!best || r.total_usd_per_yr < best.total)) best = { total: r.total_usd_per_yr, key: CX.key(alt) };
+        return;
+      }
+      var ci = CX.decisionIdx[j];
+      for (var s = 0; s < CX.controls[ci].stops.length; s++) { alt[ci] = s; walk(j + 1); }
+    })(0);
+    return best;
   };
 
   // ------------------------------------------------------------------ state
@@ -251,7 +281,7 @@
       if (b.site === siteId) chips.push({ cls: "chip-new", text: "starts " + CX.modeLabel(b.mode).toLowerCase(), usd: b.usd_per_yr });
     });
     (plan.builds || []).forEach(function (b) {
-      if (b.site === siteId) chips.push({ cls: "chip-build", text: "builds " + CX.modeLabel(b.mode).toLowerCase() + (CX.nodeById[siteId] && CX.nodeById[siteId].role === "sink" ? " spur" : " access"), usd: b.usd_per_yr });
+      if (b.site === siteId) chips.push({ cls: "chip-build", text: "builds " + CX.modeLabel(b.mode).toLowerCase() + (CX.nodeById[siteId] && CX.nodeById[siteId].role === "sink" ? (b.mode === "barge" ? " dock" : " spur") : " access"), usd: b.usd_per_yr });
     });
     return chips;
   };

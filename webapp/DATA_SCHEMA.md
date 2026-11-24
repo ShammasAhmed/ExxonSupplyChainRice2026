@@ -51,7 +51,8 @@ Money is US dollars. Volume is dry short tons (DST). "per yr" = per year.
     help: "One-sentence explanation shown on hover.",
     unit: "$/wet MT",     // optional
     stops: [{ label: "Off", value: null }, { label: "$185", value: 185 }, ...],
-    default: 2            // index into stops
+    default: 2,           // index into stops
+    build_cost: [{ site: "Joliet Refinery", mode: "barge" }]   // optional, see below
   }],
 
   cost_components: [      // display order and labels for every breakdown
@@ -72,8 +73,18 @@ Money is US dollars. Volume is dry short tons (DST). "per yr" = per year.
 }
 ```
 
-A run key is the stop index of every control, in `controls` order, joined by
-`-`. Every combination exists in `runs`.
+A run key is the stop index of every control without `build_cost`, in
+`controls` order, joined by `-`. Every combination exists in `runs`.
+
+### Build-cost controls
+
+A control with `build_cost` sets what the listed builds cost: each stop's
+`value` is $/yr (one-time cost annualized). Those builds are forced on or off
+by decision toggles, so their cost never changes the routes and the runs are
+not repeated for it. Run totals and plans use each build-cost control's
+default stop; the frontend (`CX.run` in core.js) swaps in the chosen value for
+any listed build in the plan and moves `total_usd_per_yr` and
+`breakdown.build` by the difference.
 
 ### Plan
 
@@ -121,7 +132,7 @@ Site-level build and switching costs are in the plan's `builds`,
   (positive = cheaper than today).
 * Best plan for the current assumptions = the minimum `total_usd_per_yr`
   over all runs whose non-decision control stops equal the current ones
-  (vary only the `decision: true` controls). Loss vs. best = current run
+  (vary only the `decision: true` controls), with build costs swapped in. Loss vs. best = current run
   total minus that minimum.
 * Site cost = sum of the site's route `usd_per_yr` plus the site's builds and
   switching costs.

@@ -78,7 +78,9 @@ SCENARIOS = tuple(SCENARIO_MULTIPLIERS)
 #   export       export markets (China): uncapped.
 #   terminal,    tank space limits them: 25% above today's volume (team
 #   distributor  assumption A4; IMTT's 2018 utilization of 84.6% would imply
-#                1 / 0.846 = 1.18, rate_sources G3).
+#                1 / 0.846 = 1.18, rate_sources G3). "terminal" also caps
+#                the throughput of an intermediate that lists today's volume
+#                in SITES_FILE (Olin Lemont Terminal); blank = uncapped.
 SUPPLY_CAP_MULTIPLIER: dict[str, float | None] = {
     "producer": None,
     "export": None,
@@ -91,9 +93,14 @@ SUPPLY_CAP_MULTIPLIER: dict[str, float | None] = {
 # barge to Baytown, $400 by barge to Beaumont, $450 by truck or rail). The
 # price of a delivery from supplier s that leaves s by mode m, to Standard Oil site t:
 #   1. Standard Oil's price for that lane (s, t, m) in CURRENT_FLOWS_FILE;
-#   2. else Standard Oil's volume-weighted price for everything s ships by m today
+#   2. else, if s has no direct m lane to t (so the product must go through
+#      a terminal) and Standard Oil has lanes from s by m through a terminal, the
+#      volume-weighted price of those terminal lanes (Covestro product bound
+#      for Chicago and beyond costs the $393.07 that reaches Lemont at Standard Oil's
+#      $450, D22, not its Gulf dock average);
+#   3. else Standard Oil's volume-weighted price for everything s ships by m today
 #      (a new site gets the price of the same kind of shipment);
-#   3. else price_usd_per_dst in SITES_FILE (suppliers Standard Oil does not use).
+#   4. else price_usd_per_dst in SITES_FILE (suppliers Standard Oil does not use).
 
 # --- Switching costs -----------------------------------------------------
 # Costs of changing Standard Oil's current network (CURRENT_FLOWS_FILE), in $/yr:

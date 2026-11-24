@@ -10,7 +10,10 @@ Arcs:
 
 Sources only load, sinks only unload, and intermediates (terminals) do both,
 so product changes mode only at an intermediate site, paying unload + load
-plus the site's terminal fee (charged on the unload arc).
+plus the site's terminal fee (charged on the unload arc). A line haul into an
+intermediate may not continue straight onto the next one: model.py makes
+everything arriving at a terminal unload there, even if it leaves by the
+same mode.
 """
 
 from __future__ import annotations

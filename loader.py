@@ -37,7 +37,9 @@ def load_nodes(path: str | Path) -> list[Node]:
     sources, base_dst_per_yr is today's volume to Standard Oil, and the supply cap is
     that x config.SUPPLY_CAP_MULTIPLIER[supplier_type] in every scenario
     (supplier_type is required for sources and must be blank elsewhere).
-    base_dst_per_yr may be blank only for intermediates. price_usd_per_dst (product price ex freight) is required
+    base_dst_per_yr may be blank only for intermediates; for an intermediate it
+    is today's throughput, and if given, the terminal's throughput cap is that x
+    config.SUPPLY_CAP_MULTIPLIER["terminal"] (blank = uncapped). price_usd_per_dst (product price ex freight) is required
     for sources and must be blank elsewhere. terminal_fee_usd_per_wet_mt is
     charged on every ton passing through an intermediate (blank = 0) and must
     be blank elsewhere. Raises ValueError for missing columns, duplicate
@@ -79,6 +81,8 @@ def load_nodes(path: str | Path) -> list[Node]:
             raise ValueError(f"{where} ({name!r}): supplier_type must be one of "
                              f"{list(config.SUPPLY_CAP_MULTIPLIER)}, got {supplier_type!r}.")
         cap_k = config.SUPPLY_CAP_MULTIPLIER.get(supplier_type)
+        if category is NodeCategory.INTERMEDIATE and base > 0:   # throughput cap
+            cap_k = config.SUPPLY_CAP_MULTIPLIER["terminal"]
         country = str(row["country"]).strip()
         lat, lon = _coords(row["latitude"], row["longitude"], country, name, where)
         try:

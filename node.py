@@ -130,7 +130,7 @@ class Node:
     bull: float
     price: float = 0.0          # sources: product price, $ per DST, ex freight
     terminal_fee: float = 0.0   # intermediates: throughput fee, $ per DST passing through
-    supply_cap: float | None = None   # sources: max DST/yr in every scenario (None = uncapped)
+    supply_cap: float | None = None   # sources: max DST/yr; intermediates: max throughput (None = uncapped)
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.strip():

@@ -4,3 +4,5 @@ Olin Plaquemine Plant,Olin Lemont Terminal,barge,19.40,wet,D22,Gulf-to-Chicago b
 Olin Plaquemine Plant,IMTT Lemont,barge,19.40,wet,D22,Gulf-to-Chicago barge implied by Standard Oil's $450/DST at the Lemont terminal (X8): 0.396 x the Kirby-tariff formula
 Covestro Baytown Industrial Complex,Olin Lemont Terminal,barge,23.22,wet,D22,Gulf-to-Chicago barge implied by Standard Oil's $450/DST at the Lemont terminal (X8): 0.396 x the Kirby-tariff formula
 Covestro Baytown Industrial Complex,IMTT Lemont,barge,23.22,wet,D22,Gulf-to-Chicago barge implied by Standard Oil's $450/DST at the Lemont terminal (X8): 0.396 x the Kirby-tariff formula
+Olin Plaquemine Plant,Joliet Refinery,barge,19.05,wet,D22,"Gulf-to-Chicago barge, same 0.396 x Kirby-tariff scaling as the Lemont lanes (D22): Joliet's dock is 26 river miles short of Lemont"
+Covestro Baytown Industrial Complex,Joliet Refinery,barge,22.87,wet,D22,"Gulf-to-Chicago barge, same 0.396 x Kirby-tariff scaling as the Lemont lanes (D22): Joliet's dock is 26 river miles short of Lemont"

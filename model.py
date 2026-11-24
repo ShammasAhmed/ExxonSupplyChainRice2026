@@ -18,6 +18,7 @@ flow (Solution.routes).
     s.t.  sum_{k of s} x[k, load arc of k] <= supply cap[s]       (none if uncapped)
           sum_k deliv[k,t]                == demand[t]
           per commodity k, at every node except its source hub and sink hubs: in == out
+          per commodity k, at terminal mode node (i,m): line haul in == unloaded  (no pass-through)
           X into mode node (i,m)  <= cap(i,m) * z(i,m)            (z = 1 for existing modes)
           X unloaded at (t,m)     >= min_demand_share(t,m) * demand[t]
           sum_{k of s} deliv[k,t] <= demand[t] * y[s,t]           (s,t) not a current pair
@@ -146,11 +147,24 @@ def reachable_arcs(net: Network, load_arc: int) -> list[int]:
 def price_table(net: Network, *, lane_prices: bool = True) -> dict[tuple[Commodity, str], float]:
     """$/DST paid for commodity k delivered to sink t (rule in config, "Product price").
 
+    A zero-volume current lane counts in rules 2 and 3 only when every lane in
+    the group has zero volume (then the group's plain mean is used).
+
     lane_prices=False uses one price per supplier (SITES_FILE) everywhere.
     """
     by_mode: dict[Commodity, list[tuple[float, float]]] = defaultdict(list)
+    via_terminal: dict[Commodity, list[tuple[float, float]]] = defaultdict(list)
     for (s, _, mode), lane in net.current.items():
         by_mode[(s, mode.value)].append((lane.dst_per_yr, lane.price))
+        if lane.via is not None:
+            via_terminal[(s, mode.value)].append((lane.dst_per_yr, lane.price))
+    direct = set(net.lanes)
+
+    def weighted(vols: list[tuple[float, float]]) -> float:
+        weight = sum(v for v, _ in vols)
+        return (sum(v * p for v, p in vols) / weight if weight > 0
+                else sum(p for _, p in vols) / len(vols))
+
     out = {}
     sinks = [t for t, n in net.sites.items() if n.is_sink]
     for k in commodities(net):
@@ -159,11 +173,10 @@ def price_table(net: Network, *, lane_prices: bool = True) -> dict[tuple[Commodi
             lane = net.current.get((s, t, Mode(mode))) if lane_prices else None
             if lane is not None:
                 out[(k, t)] = lane.price
+            elif lane_prices and via_terminal.get(k) and (s, t, Mode(mode)) not in direct:
+                out[(k, t)] = weighted(via_terminal[k])
             elif lane_prices and by_mode.get(k):
-                vols = by_mode[k]
-                weight = sum(v for v, _ in vols)
-                out[(k, t)] = (sum(v * p for v, p in vols) / weight if weight > 0
-                               else sum(p for _, p in vols) / len(vols))
+                out[(k, t)] = weighted(by_mode[k])
             else:
                 out[(k, t)] = net.sites[s].price
     return out
@@ -275,6 +288,14 @@ def solve_scenario(net: Network, scenario: str, *, as_is: bool = False, lane_pri
             inflow = gp.quicksum(x[k, i] for i in net.arcs_into(node) if i in arcs_k)
             outflow = gp.quicksum(x[k, i] for i in net.arcs_out_of(node) if i in arcs_k)
             m.addConstr(inflow == outflow, name=f"balance[{k},{node}]")
+            if node[1] != HUB and sites[node[0]].is_intermediate:
+                # Everything arriving at a terminal unloads there (handling, terminal fee,
+                # throughput cap); a line haul cannot run straight on to the next one.
+                arriving = gp.quicksum(x[k, i] for i in net.arcs_into(node)
+                                       if i in arcs_k and net.arcs[i].kind is ArcKind.TRANSPORT)
+                unloading = gp.quicksum(x[k, i] for i in net.arcs_out_of(node)
+                                        if i in arcs_k and net.arcs[i].kind is ArcKind.UNLOAD)
+                m.addConstr(arriving == unloading, name=f"unload[{k},{node}]")
 
     for key, sm in net.modes.items():
         cap = sm.capacity if sm.capacity is not None else big_u
@@ -349,7 +370,9 @@ def _fix_to_current(net: Network, scenario: str, x, comms: dict[Commodity, int])
         k = (s, mode.value)
         keep[(k, comms[k])] = None
         for j, (a, b, leg_mode) in enumerate(lane.path):
-            keep[(k, lanes[(a, b, leg_mode)])] = lane.dst_per_yr * k_scen
+            # Add, don't overwrite: two current lanes of one commodity can share a leg.
+            leg = (k, lanes[(a, b, leg_mode)])
+            keep[leg] = (keep.get(leg) or 0.0) + lane.dst_per_yr * k_scen
             keep[(k, arc((b, leg_mode.value), (b, HUB)))] = None           # unload at b
             if j + 1 < len(lane.path):                                     # reload at the terminal
                 keep[(k, arc((b, HUB), (b, lane.path[j + 1][2].value)))] = None
@@ -384,6 +407,9 @@ def _routes(net: Network, flow: dict[tuple[Commodity, int], float], comms: dict[
                           key=lambda i: res[i], default=None)
                 if nxt is None:
                     raise RuntimeError(f"Flow of {k} stops at {node}; cannot decompose into routes.")
+                if net.arcs[walk[-1]].kind is ArcKind.TRANSPORT and net.arcs[nxt].kind is ArcKind.TRANSPORT:
+                    raise RuntimeError(f"Flow of {k} runs through {node} without unloading; "
+                                       f"its handling and terminal fee would be skipped.")
                 walk.append(nxt)
                 node = net.arcs[nxt].head
             amount = min(res[i] for i in walk)

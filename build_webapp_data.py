@@ -6,9 +6,11 @@
 
 The webapp (webapp/index.html) never solves anything: it looks up results
 for the control settings the user picks. This script solves the optimum for
-every combination of control stops (CONTROLS below; 18,816 runs) plus Standard Oil's
+every combination of control stops (CONTROLS below; 28,224 runs) plus Standard Oil's
 current network once, and packs them in the format webapp/DATA_SCHEMA.md
-describes. Identical solutions are stored once.
+describes. Identical solutions are stored once. The two build-cost sliders
+need no runs of their own: the builds they price are forced by toggles, so
+their cost never changes the routes, and the page swaps it in.
 
 Finished runs are checkpointed in config.WEBAPP_GRID_CACHE_DIR, so an
 interrupted build resumes where it stopped. Delete that folder after changing
@@ -19,14 +21,15 @@ Controls (stop values; the default is marked *):
     supplier_switch    $/yr per new (supplier, Standard Oil site) pair: 0, 25k, 50k*, 100k, 250k, 500k, 1M
     mode_switch        $/yr per (Standard Oil site, new arrival mode): 0, 10k, 50k*, 100k, 250k, 500k, 1M
     supply_cap         terminals and distributors, x today's volume: 1.0, 1.25*, 1.5, uncapped
-    joliet_rail        Joliet rail spur: don't build / build
+    joliet             Joliet arrival infrastructure: no build / rail spur / barge dock
     sarnia_rail        Sarnia rail spur: don't build / build
     chicago_hub        off = IMTT Lemont closed and the Olin Lemont Terminal serves Joliet only
                        (today's role); on = both Lemont terminals can ship anywhere
     alberta_railheads  CN Lynton and CN Vermilion rail-to-truck transloads: off / on
-The decision controls (the last four) default to the best choice under the
-default assumptions. The Joliet barge berth is never built (it never pays
-for itself at $1.93M/yr), and demand is the base scenario.
+    rail_cost          one-time cost of a rail spur at Joliet or Sarnia: $0.3M .. $4.0M*  (build cost, no runs)
+    barge_cost         one-time cost of the Joliet barge dock: $0.5M .. $18.9M*        (build cost, no runs)
+The decision controls (joliet .. alberta_railheads) default to the best
+choice under the default assumptions. Demand is the base scenario.
 """
 
 from __future__ import annotations
@@ -65,7 +68,15 @@ def _k(v: float) -> str:
     return "$0" if v == 0 else f"${v / 1e6:g}M" if v >= 1e6 else f"${v / 1e3:g}k"
 
 
+def _annual(capex: float) -> float:
+    """One-time cost -> $/yr at 8% over 20 years (team assumption A1), as in modes.csv."""
+    r, n = 0.08, 20
+    return round(capex * r / (1 - (1 + r) ** -n))
+
+
 SUPPLIER_STOPS = [0, 25e3, 50e3, 100e3, 250e3, 500e3, 1e6]
+RAIL_CAPEX = [0.3e6, 1e6, 2e6, 4.0e6]                # 4.0M = new spur (G10)
+BARGE_CAPEX = [0.5e6, 1.5e6, 3e6, 8e6, 18.9e6]      # 18.9M = new coastal berth (G11)
 MODE_STOPS = [0, 10e3, 50e3, 100e3, 250e3, 500e3, 1e6]
 
 CONTROLS = [
@@ -91,9 +102,12 @@ CONTROLS = [
               "(team assumption A4 = 1.25x). Producers and China are uncapped; IMTT Lemont is uncapped.",
          stops=[dict(label="1.0x", value=1.0), dict(label="1.25x", value=1.25), dict(label="1.5x", value=1.5),
                 dict(label="Uncapped", value=None)], default=1),
-    dict(id="joliet_rail", label="Joliet rail spur", group="Network decisions", kind="toggle", decision=True,
-         help="Build a liquid rail spur at Joliet: $4.0M, annualized to $407k/yr (8%, 20 yr).",
-         stops=[dict(label="Don't build", value=False), dict(label="Build", value=True)], default=0),
+    dict(id="joliet", label="Joliet receiving", group="Network decisions", kind="toggle", decision=True,
+         help="How Joliet takes caustic. No build: truck from a Lemont terminal, as today. Rail spur: "
+              "rail from Lemont. Barge dock: barge straight from the Gulf (Plaquemine or Baytown), no "
+              "terminal. Construction cost is set by the sliders under Construction costs.",
+         stops=[dict(label="No build", value=None), dict(label="Rail spur", value="rail"),
+                dict(label="Barge dock", value="barge")], default=0),
     dict(id="sarnia_rail", label="Sarnia rail spur", group="Network decisions", kind="toggle", decision=True,
          help="Build a liquid rail spur at Sarnia: $407k/yr. Sarnia takes 1,323 DST/yr today "
               "(20k+ DMT after the 2028 expansion, not modeled here).",
@@ -107,7 +121,23 @@ CONTROLS = [
          help="CN Lynton (Fort McMurray) and CN Vermilion: rail-to-truck transloads that let rail reach "
               "Kearl and Cold Lake. Fee $4.15/wet MT.",
          stops=[dict(label="Off", value=False), dict(label="On", value=True)], default=0),
+    dict(id="rail_cost", label="Rail spur cost", group="Construction costs", kind="slider", decision=False,
+         unit="one-time, Joliet or Sarnia",
+         help="One-time cost of a rail spur, annualized at 8% over 20 years. $4.0M is a new liquid spur "
+              "(Iowa DOT, G10). Standard Oil's Joliet fact sheet says the refinery already has rail car access, "
+              "so adding a caustic unloading spot may cost far less (low stops: team estimate).",
+         build_cost=[dict(site=JOLIET, mode="rail"), dict(site=SARNIA, mode="rail")],
+         stops=[dict(label=_k(v), value=_annual(v)) for v in RAIL_CAPEX], default=len(RAIL_CAPEX) - 1),
+    dict(id="barge_cost", label="Barge dock cost", group="Construction costs", kind="slider", decision=False,
+         unit="one-time, Joliet",
+         help="One-time cost of the Joliet barge dock, annualized at 8% over 20 years. $18.9M rebuilt a "
+              "coastal port berth (G11); inland liquid docks run about $3-6M (Texas port plans). Standard Oil's "
+              "Joliet fact sheet lists an existing barge loading dock, so a caustic tie-in may cost "
+              "under $1-3M (low stops: team estimate).",
+         build_cost=[dict(site=JOLIET, mode="barge")],
+         stops=[dict(label=_k(v), value=_annual(v)) for v in BARGE_CAPEX], default=len(BARGE_CAPEX) - 1),
 ]
+SOLVE_CONTROLS = [c for c in CONTROLS if "build_cost" not in c]   # the controls runs are keyed by
 
 COST_COMPONENTS = [
     dict(id="product", label="Caustic (product)"),
@@ -150,8 +180,10 @@ NOTES = [
     "The Olin Lemont Terminal (formerly K.A. Steel) is a terminal, not a producer: per Standard Oil, its caustic comes "
     "from Plaquemine, LA or Baytown, TX.",
     "Switching costs and terminal capacity have no public source; they are team assumptions to vary.",
-    "Construction costs are one-time costs annualized at 8% over 20 years. The Joliet barge berth "
-    "($1.93M/yr) is left out: it never pays for itself.",
+    "Construction costs are one-time costs annualized at 8% over 20 years. Standard Oil's Joliet fact sheet lists "
+    "rail car access and a barge loading dock already, so the real cost of receiving caustic there is "
+    "probably well below the new-build figures ($4.0M spur, $18.9M berth); use the cost sliders.",
+    "A Joliet barge dock is reached straight from the Gulf at the same contract-level barge rate as Lemont (D22).",
     "$/DST = dollars per dry short ton of NaOH. $/DMT = per dry metric ton. $/wet MT = per metric ton of "
     "50% solution as shipped.",
 ]
@@ -162,7 +194,8 @@ ASSUMPTIONS = [
     dict(id="A5", text="Supplier switching cost per new (supplier, Standard Oil site) pair (slider)."),
     dict(id="A6", text="Mode switching cost per Standard Oil site starting a new arrival mode (slider)."),
     dict(id="D19", text="China to Vancouver ocean freight $145/wet MT base, $115-185 range (slider)."),
-    dict(id="D22", text="Gulf to Lemont barge implied by Standard Oil's $450/DST terminal price."),
+    dict(id="D22", text="Gulf to Lemont and Gulf to Joliet barge implied by Standard Oil's $450/DST terminal price."),
+    dict(id="G10/G11", text="Rail spur $4.0M and barge berth $18.9M new-build costs; lower stops are team estimates (sliders)."),
 ]
 
 
@@ -197,7 +230,7 @@ def _network(ocean_rate: float | None) -> Network:
 
 
 def _settings(key: tuple[int, ...]) -> dict:
-    return {c["id"]: c["stops"][i]["value"] for c, i in zip(CONTROLS, key)}
+    return {c["id"]: c["stops"][i]["value"] for c, i in zip(SOLVE_CONTROLS, key)}
 
 
 def solve_run(key: tuple[int, ...]) -> tuple[tuple[int, ...], dict]:
@@ -215,12 +248,11 @@ def solve_run(key: tuple[int, ...]) -> tuple[tuple[int, ...], dict]:
     caps: dict[str, float | None] = {}
     mult = s["supply_cap"]
     for name, n in net.sites.items():
-        if n.is_source and supplier_types().get(name) in ("terminal", "distributor"):
+        if ((n.is_source and supplier_types().get(name) in ("terminal", "distributor"))
+                or (n.is_intermediate and n.supply_cap is not None)):   # Olin Lemont throughput
             caps[name] = None if mult is None else n.base * mult
-    today_lemont = sum(l.dst_per_yr for l in net.current.values() if l.via == OLIN_LEMONT)
-    caps[OLIN_LEMONT] = None if mult is None else today_lemont * mult
-    fixed_builds = {(JOLIET, "rail"): s["joliet_rail"], (SARNIA, "rail"): s["sarnia_rail"],
-                    (JOLIET, "barge"): False}
+    fixed_builds = {(JOLIET, "rail"): s["joliet"] == "rail", (JOLIET, "barge"): s["joliet"] == "barge",
+                    (SARNIA, "rail"): s["sarnia_rail"]}
     sol = solve_scenario(net, SCENARIO, supplier_switch_cost=s["supplier_switch"],
                          mode_switch_cost=s["mode_switch"], closed_sites=closed_sites,
                          closed_lanes=closed_lanes, fixed_builds=fixed_builds, caps=caps)
@@ -315,7 +347,7 @@ def main() -> None:
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-    keys = list(itertools.product(*(range(len(c["stops"])) for c in CONTROLS)))
+    keys = list(itertools.product(*(range(len(c["stops"])) for c in SOLVE_CONTROLS)))
     if args.limit:
         keys = keys[:args.limit]
     cache_dir = Path(config.WEBAPP_GRID_CACHE_DIR)
@@ -370,15 +402,17 @@ def main() -> None:
 
     controls = [dict(c) for c in CONTROLS]
     if not args.limit:
-        # Decision toggles start at the best choice for the default assumptions.
-        decision = [i for i, c in enumerate(controls) if c["decision"]]
-        default = [c["default"] for c in controls]
-        best = min(itertools.product(*(range(len(controls[i]["stops"])) for i in decision)),
+        # Decision toggles start at the best choice for the default assumptions (the
+        # build-cost sliders' defaults are modes.csv's costs, so run totals already use them).
+        solve = [dict(c) for c in SOLVE_CONTROLS]
+        decision = [i for i, c in enumerate(solve) if c["decision"]]
+        default = [c["default"] for c in solve]
+        best = min(itertools.product(*(range(len(solve[i]["stops"])) for i in decision)),
                    key=lambda combo: runs["-".join(map(str, [combo[decision.index(i)] if i in decision
-                                                              else default[i] for i in range(len(controls))]))]
+                                                              else default[i] for i in range(len(solve))]))]
                    ["total_usd_per_yr"])
         for i, v in zip(decision, best):
-            controls[i]["default"] = v
+            controls[CONTROLS.index(SOLVE_CONTROLS[i])]["default"] = v
 
     data = dict(
         meta=dict(title="Caustic soda network", generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -423,7 +457,8 @@ INFLATE_JS = """window.APP_DATA = (function (c) {
       mode_switches: p[5].map(function (x) { return { site: ids[x[0]], mode: modes[x[1]], usd_per_yr: x[2] }; }) };
   }
   var plans = {}; c.plans.forEach(function (p, i) { plans["p" + i] = plan(p); });
-  var runs = {}, sizes = c.controls.map(function (x) { return x.stops.length; }), n = c.run_plans.length;
+  var runs = {}, n = c.run_plans.length;
+  var sizes = c.controls.filter(function (x) { return !x.build_cost; }).map(function (x) { return x.stops.length; });
   for (var r = 0; r < n; r++) {
     var key = [], rem = r;
     for (var j = sizes.length - 1; j >= 0; j--) { key.unshift(rem % sizes[j]); rem = Math.floor(rem / sizes[j]); }
@@ -439,7 +474,8 @@ INFLATE_JS = """window.APP_DATA = (function (c) {
 def packed_js(data: dict, run_plans: list[dict], keys: list[tuple[int, ...]]) -> str:
     """window.APP_DATA as compact JSON plus INFLATE_JS. Runs must be in
     itertools.product order of the control stops (the inflater rebuilds keys)."""
-    expected = list(itertools.product(*(range(len(c["stops"])) for c in data["controls"])))
+    expected = list(itertools.product(*(range(len(c["stops"])) for c in data["controls"]
+                                        if "build_cost" not in c)))
     if keys != expected:
         raise ValueError("Packing needs every run, in control-stop product order (no --limit).")
     idx = {n["id"]: i for i, n in enumerate(data["nodes"])}

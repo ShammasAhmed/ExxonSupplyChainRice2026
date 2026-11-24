@@ -18,7 +18,7 @@
     if (out.run) {
       var idx = out.run.split("-").map(Number);
       var ok = idx.length === CX.controls.length && idx.every(function (v, i) { return v >= 0 && v < CX.controls[i].stops.length; });
-      if (ok && CX.D.runs[out.run]) CX.state.idx = idx;
+      if (ok && CX.run(idx)) CX.state.idx = idx;
     }
     if (out.v === "today") CX.state.view = "today";
     if (out.u && CX.UNITS.some(function (u) { return u.id === out.u; })) CX.state.unit = out.u;
